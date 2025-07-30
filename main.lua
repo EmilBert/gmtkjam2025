@@ -24,6 +24,12 @@ function player_update()
     local x_dir = (btn(1) and 1 or 0) - (btn(0) and 1 or 0)
     local y_dir = (btn(3) and 1 or 0) - (btn(2) and 1 or 0)
 
+    -- normalize diagonal movement
+    if x_dir != 0 and y_dir != 0 then
+        x_dir *= 0.7071
+        y_dir *= 0.7071
+    end
+
     local next_x = player.x + x_dir * player.speed
     local next_y = player.y + y_dir * player.speed
 
