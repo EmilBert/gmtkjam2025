@@ -10,6 +10,8 @@ player = {
     face = 0,
 }
 
+GLOBAL_ROTATION = 0
+
 MAP_SIZE_IN_TILES = 16
 MAP_SIZE = MAP_SIZE_IN_TILES * 8
 
@@ -87,23 +89,27 @@ function update_map(previous_face, current_face)
     if angle == 0 then
         return -- No rotation needed, exit early.
     end
-
-    for i = 0, MAP_SIZE_IN_TILES - 1 do
+    GLOBAL_ROTATION += angle / 90
+    GLOBAL_ROTATION = GLOBAL_ROTATION % 4
+    for i = 0, 5 do
         for j = 0, MAP_SIZE_IN_TILES - 1 do
-            -- Rotate all map segments based on the previous and current face.
-            
-            local new_tile = (angle == 90 and mget(current_face * MAP_SIZE_IN_TILES + 15 - j, i)) or 
-                (angle == 180 and mget(current_face * MAP_SIZE_IN_TILES + 15 - j, 15 - i)) or 
-                (angle == -90 and mget(current_face * MAP_SIZE_IN_TILES + j, 15 - i)) or {}
+            for k = 0, MAP_SIZE_IN_TILES - 1 do
+                -- Rotate all map segments based on the previous and current face.
                 
-            map_segment[i * MAP_SIZE_IN_TILES + j] = new_tile
+                local new_tile = (angle == -90 and mget(i * MAP_SIZE_IN_TILES + 15 - k, j)) or 
+                    (angle == 180 and mget(i * MAP_SIZE_IN_TILES + 15 - k, 15 - j)) or 
+                    (angle == 90 and mget(i * MAP_SIZE_IN_TILES + k, 15 - j)) or {}
+                    
+                map_segment[(i * MAP_SIZE_IN_TILES * MAP_SIZE_IN_TILES) + (j * MAP_SIZE_IN_TILES) + k] = new_tile
+            end
         end
     end
-
     -- Loop through the copied map segment and set the new tiles to the map.
-    for i = 0, MAP_SIZE_IN_TILES - 1 do
+    for i = 0, 5 do
         for j = 0, MAP_SIZE_IN_TILES - 1 do
-            mset(current_face * MAP_SIZE_IN_TILES + i, j, map_segment[i * MAP_SIZE_IN_TILES + j])
+            for k = 0, MAP_SIZE_IN_TILES - 1 do
+                mset(i * MAP_SIZE_IN_TILES + j, k, map_segment[(i * MAP_SIZE_IN_TILES * MAP_SIZE_IN_TILES) + (j * MAP_SIZE_IN_TILES) + k])
+            end
         end
     end
 end
@@ -115,14 +121,13 @@ function _draw()
     spr(player.sprite, player.x - (player.face*MAP_SIZE), player.y)
     -- draw the player's pixel position
     print("Face: "..player.face, 0, 10, 2)
-    print("X: "..player.x, 0, 20, 2)
-    print("Y: "..player.y, 0, 30, 2)
+    print("Angle: "..GLOBAL_ROTATION, 0, 20, 2)
 end
 
 -- Map assets
 
 -- Enum for directions to avoid magic numbers.
-directions = {NORTH = 1, EAST = 2, SOUTH = 3, WEST = 4}
+directions = {NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3}
 
 -- Enum for cube faces to avoid magic numbers.
 faces = {BASE = 0, FRONT = 1, RIGHT = 2, BACK = 3, LEFT = 4, TOP = 5}
@@ -131,18 +136,18 @@ faces = {BASE = 0, FRONT = 1, RIGHT = 2, BACK = 3, LEFT = 4, TOP = 5}
 -- This means the pairs are sorted in exit direction north, east, south, west as in the directions object.
 
 connections = { -- TODO (RobotGandhi): Double check these, could be incorrect. Also very disorienting, even if correct.
-    {{faces.FRONT, directions.SOUTH}, {faces.RIGHT, directions.SOUTH}, {faces.BACK, directions.SOUTH}, {faces.LEFT, directions.SOUTH}},  -- BASE
-    {{faces.TOP, directions.SOUTH}, {faces.RIGHT, directions.WEST}, {faces.BASE, directions.NORTH}, {faces.LEFT, directions.EAST}},      -- FRONT
-    {{faces.TOP, directions.EAST}, {faces.BACK, directions.WEST}, {faces.BASE, directions.EAST}, {faces.FRONT, directions.EAST}},       -- RIGHT
-    {{faces.TOP, directions.NORTH}, {faces.LEFT, directions.WEST}, {faces.BASE, directions.SOUTH}, {faces.RIGHT, directions.EAST}},      -- BACK
-    {{faces.TOP, directions.WEST}, {faces.FRONT, directions.WEST}, {faces.BASE, directions.WEST}, {faces.BACK, directions.EAST}},       -- LEFT
-    {{faces.BACK, directions.NORTH}, {faces.RIGHT, directions.NORTH}, {faces.FRONT, directions.NORTH}, {faces.LEFT, directions.NORTH}}   -- TOP
+    {{faces.FRONT, directions.SOUTH}, {faces.RIGHT, directions.WEST}, {faces.BACK, directions.NORTH}, {faces.LEFT, directions.EAST}},  -- BASE
+    {{faces.TOP, directions.SOUTH}, {faces.RIGHT, directions.NORTH}, {faces.BASE, directions.NORTH}, {faces.LEFT, directions.NORTH}},      -- FRONT
+    {{faces.FRONT, directions.EAST}, {faces.TOP, directions.EAST}, {faces.BACK, directions.EAST}, {faces.BASE, directions.EAST}},       -- RIGHT
+    {{faces.BASE, directions.SOUTH}, {faces.RIGHT, directions.SOUTH}, {faces.TOP, directions.NORTH}, {faces.LEFT, directions.SOUTH}},      -- BACK
+    {{faces.FRONT, directions.WEST}, {faces.BASE, directions.WEST}, {faces.BACK, directions.WEST}, {faces.TOP, directions.WEST}},       -- LEFT
+    {{faces.BACK, directions.SOUTH}, {faces.RIGHT, directions.EAST}, {faces.FRONT, directions.NORTH}, {faces.LEFT, directions.WEST}}   -- TOP
 }
 
 cube_rotation_lookup = {
     [faces.FRONT] = {
-        [faces.RIGHT] = 90,
-        [faces.LEFT] = -90,
+        [faces.RIGHT] = -90,
+        [faces.LEFT] = 90,
     },
     [faces.TOP] = {
         [faces.RIGHT] = 180,
@@ -172,10 +177,14 @@ cube_rotation_lookup = {
     offset: how far from the edge is the character? Counting from the left on north/south and the top on east/west.
 ]]
 function traverse(exit_direction, offset)
-    local new_pos = connections[player.face + 1][exit_direction]
+    exit_direction -= GLOBAL_ROTATION
+    exit_direction = exit_direction % 4
+    local new_pos = connections[player.face + 1][exit_direction + 1]
     update_map(player.face, new_pos[1])
 
     player.face = new_pos[1]
-    player.x = player.face*MAP_SIZE + ((new_pos[2] == directions.EAST and MAP_SIZE - (player.width*2)) or (new_pos[2] == directions.WEST and player.width*2) or offset)
-    player.y = ((new_pos[2] == directions.SOUTH and MAP_SIZE - (player.height*2)) or (new_pos[2] == directions.NORTH and player.height*2) or offset)
+    local new_dir = new_pos[2] + GLOBAL_ROTATION
+    new_dir = new_dir % 4
+    player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player.width*2)) or (new_dir == directions.WEST and player.width*2) or offset)
+    player.y = ((new_dir == directions.SOUTH and MAP_SIZE - (player.height*2)) or (new_dir == directions.NORTH and player.height*2) or offset)
 end
