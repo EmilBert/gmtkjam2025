@@ -15,8 +15,13 @@ GLOBAL_ROTATION = 0
 MAP_SIZE_IN_TILES = 16
 MAP_SIZE = MAP_SIZE_IN_TILES * 8
 
+
 function _update()
-   player_update()
+    player_update()
+    
+    if not stat(57) then
+        music(0)
+    end
 end
 
 function is_solid_at(px, py)
