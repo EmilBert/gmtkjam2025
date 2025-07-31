@@ -96,8 +96,9 @@ function update_map(previous_face, current_face)
             for k = 0, MAP_SIZE_IN_TILES - 1 do
                 -- Rotate all map segments based on the previous and current face.
                 
-                local new_tile = (angle == -90 and mget(i * MAP_SIZE_IN_TILES + 15 - k, j)) or 
-                    (angle == 180 and mget(i * MAP_SIZE_IN_TILES + 15 - k, 15 - j)) or 
+                local new_tile = 
+                    (angle == -90 and mget(i * MAP_SIZE_IN_TILES + 15 - k, j)) or 
+                    (angle == 180 and mget(i * MAP_SIZE_IN_TILES + 15 - j, 15 - k)) or 
                     (angle == 90 and mget(i * MAP_SIZE_IN_TILES + k, 15 - j)) or {}
                     
                 map_segment[(i * MAP_SIZE_IN_TILES * MAP_SIZE_IN_TILES) + (j * MAP_SIZE_IN_TILES) + k] = new_tile
@@ -116,6 +117,7 @@ end
 
 function _draw()
     cls()
+    draw_flag0_underlays()
     map(player.face * MAP_SIZE_IN_TILES, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
 
     spr(player.sprite, player.x - (player.face*MAP_SIZE), player.y)
@@ -124,6 +126,24 @@ function _draw()
     print("Angle: "..GLOBAL_ROTATION, 0, 20, 2)
 end
 
+-- Draw tile 33 beneath all tiles with flag 0 set on the current face
+function draw_flag0_underlays()
+    local map_x = player.face * MAP_SIZE_IN_TILES
+    for y=0,MAP_SIZE_IN_TILES-1 do
+        for x=0,MAP_SIZE_IN_TILES-1 do
+            local tile = mget(map_x + x, y)
+            if fget(tile, 0) then
+                -- draw tile 33 beneath, offset 8px down
+                mapdrawtile(33, x*8, y*8 + 8)
+            end
+        end
+    end
+end
+
+-- Helper to draw a single tile at screen position
+function mapdrawtile(tile, sx, sy)
+    spr(tile, sx, sy)
+end
 -- Map assets
 
 -- Enum for directions to avoid magic numbers.
@@ -152,11 +172,12 @@ cube_rotation_lookup = {
     [faces.TOP] = {
         [faces.RIGHT] = 180,
         [faces.LEFT] = 180,
+        
     },
     [faces.LEFT] = {
         [faces.TOP] = 180,
-        [faces.BACK] = -90,
-        [faces.FRONT] = 90,
+        [faces.FRONT] = -90,
+        [faces.BACK] = 90,
     },
     [faces.RIGHT] = {
         [faces.TOP] = 180,
