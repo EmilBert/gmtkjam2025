@@ -58,7 +58,7 @@ function player_update()
     end
 
     -- Check room transition
-    local offset = player.width -- TODO (RobotGandhi): Offset too small, currently can't move if there's a wall on the other side of the map sheet.
+    local offset = player.width
     player_x_center = player.x + (player.width/2)
     player_y_center = player.y + (player.height/2)
     if not in_rect(player_x_center, player_y_center, player.face*MAP_SIZE + offset, offset, MAP_SIZE - (offset*2), MAP_SIZE - (offset*2)) then
