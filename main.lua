@@ -59,17 +59,22 @@ function player_update()
 
     -- Check room transition
     local offset = player.width -- TODO (RobotGandhi): Offset too small, currently can't move if there's a wall on the other side of the map sheet.
-    if not in_rect(player.x, player.y, player.face*MAP_SIZE + offset, offset, MAP_SIZE - (offset*2), MAP_SIZE - (offset*2)) then
+    player_x_center = player.x + (player.width/2)
+    player_y_center = player.y + (player.height/2)
+    if not in_rect(player_x_center, player_y_center, player.face*MAP_SIZE + offset, offset, MAP_SIZE - (offset*2), MAP_SIZE - (offset*2)) then
         direction = directions.WEST
-        if player.y - offset < 0 then
+        edge_offset = player.y
+        if player_y_center - offset < 0 then
             direction = directions.NORTH
-        elseif player.y + offset > MAP_SIZE then
+            edge_offset = player.x - player.face*MAP_SIZE
+        elseif player_y_center + offset > MAP_SIZE then
             direction = directions.SOUTH
-        elseif player.x + offset > (player.face+1)*MAP_SIZE then
+            edge_offset = player.x - player.face*MAP_SIZE
+        elseif player_x_center + offset > (player.face+1)*MAP_SIZE then
             direction = directions.EAST
         end
 
-        traverse(direction)
+        traverse(direction, edge_offset)
     end
 end
 
@@ -104,15 +109,26 @@ connections = { -- TODO (RobotGandhi): Double check these, could be incorrect. A
 }
 
 --[[Function for traversing to another face.
-    old_face: cube face the character is currently on.
     exit_direction: direction the character is exiting through.
-    tile_offset: how far from the edge is the character? Counting from the left on north/south and the top on east/west.
+    offset: how far from the edge is the character? Counting from the left on north/south and the top on east/west.
 ]]
-function traverse(exit_direction)
-    local x_offset = player.x - player.face*MAP_SIZE
+function traverse(exit_direction, offset)
     local new_pos = connections[player.face + 1][exit_direction]
     player.face = new_pos[1]
     player.x = player.face*MAP_SIZE
-    player.x += ((new_pos[2] == directions.EAST and MAP_SIZE - (player.width*2)) or (new_pos[2] == directions.WEST and player.width*2) or x_offset)
-    player.y = ((new_pos[2] == directions.SOUTH and MAP_SIZE - (player.height*2)) or (new_pos[2] == directions.NORTH and player.height*2) or player.y)
+    if new_pos[2] == directions.NORTH then
+        player.x += offset
+        player.y = player.height*2
+    elseif new_pos[2] == directions.EAST then
+        player.x += MAP_SIZE - (player.width*2)
+        player.y = offset
+    elseif new_pos[2] == directions.SOUTH then
+        player.x += offset
+        player.y = MAP_SIZE - (player.height*2)
+    elseif new_pos[2] == directions.WEST then
+        player.x += player.width*2
+        player.y = offset
+    end
+    -- player.x += ((new_pos[2] == directions.EAST and MAP_SIZE - (player.width*2)) or (new_pos[2] == directions.WEST and player.width*2) or x_offset)
+    -- player.y = ((new_pos[2] == directions.SOUTH and MAP_SIZE - (player.height*2)) or (new_pos[2] == directions.NORTH and player.height*2) or player.y)
 end
