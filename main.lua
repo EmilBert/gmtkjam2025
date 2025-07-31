@@ -59,17 +59,18 @@ function player_update()
 
     -- Check room transition
     local offset = player.width
-    player_x_center = player.x + (player.width/2)
-    player_y_center = player.y + (player.height/2)
-    if not in_rect(player_x_center, player_y_center, player.face*MAP_SIZE + offset, offset, MAP_SIZE - (offset*2), MAP_SIZE - (offset*2)) then
+    local player_x_center = player.x + (player.width/2)
+    local player_y_center = player.y + (player.height/2)
+    local left_screen_position = player.face*MAP_SIZE
+    if not in_rect(player_x_center, player_y_center, left_screen_position + offset, offset, MAP_SIZE - (offset*2), MAP_SIZE - (offset*2)) then
         direction = directions.WEST
         edge_offset = player.y
         if player_y_center - offset < 0 then
             direction = directions.NORTH
-            edge_offset = player.x - player.face*MAP_SIZE
+            edge_offset = player.x - left_screen_position
         elseif player_y_center + offset > MAP_SIZE then
             direction = directions.SOUTH
-            edge_offset = player.x - player.face*MAP_SIZE
+            edge_offset = player.x - left_screen_position
         elseif player_x_center + offset > (player.face+1)*MAP_SIZE then
             direction = directions.EAST
         end
@@ -115,20 +116,6 @@ connections = { -- TODO (RobotGandhi): Double check these, could be incorrect. A
 function traverse(exit_direction, offset)
     local new_pos = connections[player.face + 1][exit_direction]
     player.face = new_pos[1]
-    player.x = player.face*MAP_SIZE
-    if new_pos[2] == directions.NORTH then
-        player.x += offset
-        player.y = player.height*2
-    elseif new_pos[2] == directions.EAST then
-        player.x += MAP_SIZE - (player.width*2)
-        player.y = offset
-    elseif new_pos[2] == directions.SOUTH then
-        player.x += offset
-        player.y = MAP_SIZE - (player.height*2)
-    elseif new_pos[2] == directions.WEST then
-        player.x += player.width*2
-        player.y = offset
-    end
-    -- player.x += ((new_pos[2] == directions.EAST and MAP_SIZE - (player.width*2)) or (new_pos[2] == directions.WEST and player.width*2) or x_offset)
-    -- player.y = ((new_pos[2] == directions.SOUTH and MAP_SIZE - (player.height*2)) or (new_pos[2] == directions.NORTH and player.height*2) or player.y)
+    player.x = player.face*MAP_SIZE + ((new_pos[2] == directions.EAST and MAP_SIZE - (player.width*2)) or (new_pos[2] == directions.WEST and player.width*2) or offset)
+    player.y = ((new_pos[2] == directions.SOUTH and MAP_SIZE - (player.height*2)) or (new_pos[2] == directions.NORTH and player.height*2) or offset)
 end
