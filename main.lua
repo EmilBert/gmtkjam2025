@@ -79,9 +79,39 @@ function player_update()
     end
 end
 
+-- Update map based on current cube rotation and player position.
+function update_map(previous_face, current_face)
+    local map_segment = {}
+    local angle = cube_rotation_lookup[previous_face][current_face] or 0
+    
+    if angle == 0 then
+        return -- No rotation needed, exit early.
+    end
+
+    for i = 0, MAP_SIZE_IN_TILES - 1 do
+        for j = 0, MAP_SIZE_IN_TILES - 1 do
+            -- Rotate all map segments based on the previous and current face.
+            
+            local new_tile = (angle == 90 and mget(current_face * MAP_SIZE_IN_TILES + 15 - j, i)) or 
+                (angle == 180 and mget(current_face * MAP_SIZE_IN_TILES + 15 - j, 15 - i)) or 
+                (angle == -90 and mget(current_face * MAP_SIZE_IN_TILES + j, 15 - i)) or {}
+                
+            map_segment[i * MAP_SIZE_IN_TILES + j] = new_tile
+        end
+    end
+
+    -- Loop through the copied map segment and set the new tiles to the map.
+    for i = 0, MAP_SIZE_IN_TILES - 1 do
+        for j = 0, MAP_SIZE_IN_TILES - 1 do
+            mset(current_face * MAP_SIZE_IN_TILES + i, j, map_segment[i * MAP_SIZE_IN_TILES + j])
+        end
+    end
+end
+
 function _draw()
     cls()
-    map(player.face * MAP_SIZE_IN_TILES, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES) -- ritar kartan
+    map(player.face * MAP_SIZE_IN_TILES, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
+
     spr(player.sprite, player.x - (player.face*MAP_SIZE), player.y)
     -- draw the player's pixel position
     print("Face: "..player.face, 0, 10, 2)
@@ -109,12 +139,42 @@ connections = { -- TODO (RobotGandhi): Double check these, could be incorrect. A
     {{faces.BACK, directions.NORTH}, {faces.RIGHT, directions.NORTH}, {faces.FRONT, directions.NORTH}, {faces.LEFT, directions.NORTH}}   -- TOP
 }
 
+cube_rotation_lookup = {
+    [faces.FRONT] = {
+        [faces.RIGHT] = 90,
+        [faces.LEFT] = -90,
+    },
+    [faces.TOP] = {
+        [faces.RIGHT] = 180,
+        [faces.LEFT] = 180,
+    },
+    [faces.LEFT] = {
+        [faces.TOP] = 180,
+        [faces.BACK] = -90,
+        [faces.FRONT] = 90,
+    },
+    [faces.RIGHT] = {
+        [faces.TOP] = 180,
+        [faces.BACK] = -90,
+        [faces.FRONT] = 90,
+    },
+    [faces.BACK] = {
+        [faces.LEFT] = -90,
+        [faces.RIGHT] = 90,
+    },
+    [faces.BASE] = { -- No rotations from the base face.
+    },
+}
+
+
 --[[Function for traversing to another face.
     exit_direction: direction the character is exiting through.
     offset: how far from the edge is the character? Counting from the left on north/south and the top on east/west.
 ]]
 function traverse(exit_direction, offset)
     local new_pos = connections[player.face + 1][exit_direction]
+    update_map(player.face, new_pos[1])
+
     player.face = new_pos[1]
     player.x = player.face*MAP_SIZE + ((new_pos[2] == directions.EAST and MAP_SIZE - (player.width*2)) or (new_pos[2] == directions.WEST and player.width*2) or offset)
     player.y = ((new_pos[2] == directions.SOUTH and MAP_SIZE - (player.height*2)) or (new_pos[2] == directions.NORTH and player.height*2) or offset)
