@@ -40,22 +40,31 @@ function player_update()
         y_dir *= 0.7071
     end
 
-    local next_x = player.x + x_dir * player.speed
-    local next_y = player.y + y_dir * player.speed
-
-    -- kolla kollision i x-led
+    -- move x axis as far as possible
     if x_dir != 0 then
-        local test_x = next_x + (x_dir > 0 and player.width-1 or 0)
-        if not is_solid_at(test_x, player.y) and not is_solid_at(test_x, player.y + player.height-1) then
-            player.x = next_x
+        local step = x_dir > 0 and 1 or -1
+        for i=1,player.speed do
+            local next_x = player.x + step
+            local test_x = next_x + (x_dir > 0 and player.width-1 or 0)
+            if not is_solid_at(test_x, player.y) and not is_solid_at(test_x, player.y + player.height-1) then
+                player.x = next_x
+            else
+                break
+            end
         end
     end
 
-    -- kolla kollision i y-led
+    -- move y axis as far as possible
     if y_dir != 0 then
-        local test_y = next_y + (y_dir > 0 and player.height-1 or 0)
-        if not is_solid_at(player.x, test_y) and not is_solid_at(player.x + player.width-1, test_y) then
-            player.y = next_y
+        local step = y_dir > 0 and 1 or -1
+        for i=1,player.speed do
+            local next_y = player.y + step
+            local test_y = next_y + (y_dir > 0 and player.height-1 or 0)
+            if not is_solid_at(player.x, test_y) and not is_solid_at(player.x + player.width-1, test_y) then
+                player.y = next_y
+            else
+                break
+            end
         end
     end
 
