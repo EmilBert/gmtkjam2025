@@ -27,7 +27,7 @@ end
 function is_solid_at(px, py)
     local tile_x = flr(px / 8) -- pga spritesen är 8x8
     local tile_y = flr(py / 8)
-    return fget(mget(tile_x, tile_y), 0)
+    return fget(mget(tile_x, tile_y), 0) or fget(mget(tile_x, tile_y + MAP_SIZE_IN_TILES), 0)
 end
 
 function in_rect(px, py, rx, ry, rw, rh)
@@ -144,19 +144,34 @@ function update_boxes(face)
                     else
                         step[2] = (falling_direction == directions.SOUTH and 1) or -1
                     end
-                    while new_pos[1] == 0 or new_pos[2] == 0 
-                        or new_pos[1] == MAP_SIZE_IN_TILES - 1 or new_pos[2] == MAP_SIZE_IN_TILES - 1 
-                        or not fget(mget(v[1] * MAP_SIZE_IN_TILES + new_pos[1] + step[1], new_pos[2] + step[2]), 0) do
-
-                        new_pos[1] += step[1]
-                        new_pos[2] += step[2]
+                    -- TODO (RobotGandhi): Boxes can "merge" if they end up on the same square.
+                    while true do 
+                        local should_break = false
+                        if fget(mget(v[1] * MAP_SIZE_IN_TILES + new_pos[1] + step[1], new_pos[2] + step[2]), 0) then should_break = true end
                         if not in_rect(new_pos[1], new_pos[2], 1, 1, 13, 13) then
-                            new_pos = (falling_direction == directions.NORTH and {x, 15}) or
-                            (falling_direction == directions.EAST and {0, y}) or
-                            (falling_direction == directions.SOUTH and {x, 0}) or
-                            (falling_direction == directions.WEST and {15, y}) 
-                            escaped_screen = true
+                            if falling_direction == directions.NORTH and new_pos[2] == 0 then 
+                                new_pos = {x, 15}
+                                should_break = true
+                                escaped_screen = true
+                            elseif falling_direction == directions.EAST and new_pos[1] == 15 then 
+                                new_pos = {0, y}
+                                should_break = true
+                                escaped_screen = true
+                            elseif falling_direction == directions.SOUTH and new_pos[2] == 15 then 
+                                new_pos = {x, 0}
+                                should_break = true
+                                escaped_screen = true
+                            elseif falling_direction == directions.WEST and new_pos[1] == 0 then 
+                                new_pos = {15, y}
+                                should_break = true
+                                escaped_screen = true
+                            end
+                        end
+                        if should_break then
                             break
+                        else
+                            new_pos[1] += step[1]
+                            new_pos[2] += step[2]
                         end
                     end
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
@@ -264,8 +279,8 @@ function traverse(exit_direction, offset)
     exit_direction -= GLOBAL_ROTATION
     exit_direction = exit_direction % 4
     local new_pos = connections[player.face + 1][exit_direction + 1]
-    update_map(player.face, new_pos[1])
     update_boxes(new_pos[1] + 1)
+    update_map(player.face, new_pos[1])
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
