@@ -129,6 +129,32 @@ function update_map(previous_face, current_face)
     end
 end
 
+-- Move boxes according to the gravity of the current face.
+function update_boxes(face)
+    for k, v in pairs(connections[face]) do
+        for x = 0, MAP_SIZE_IN_TILES - 1 do
+            for y = 0, MAP_SIZE_IN_TILES - 1 do
+                if mget(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == 4 then
+                    local falling_direction = (v[2] + GLOBAL_ROTATION) % 4
+                    local new_pos = {x, y}
+                    local step = {0, 0}
+                    if falling_direction % 2 == 1 then -- falling in y-direction
+                        step[1] = (falling_direction == directions.EAST and 1) or -1
+                    else
+                        step[2] = (falling_direction == directions.SOUTH and 1) or -1
+                    end
+                    while not fget(mget(new_pos[1] + step[1], new_pos[2] + step[2]), 0) do
+                        new_pos[1] += step[1]
+                        new_pos[2] += step[2]
+                    end
+                    mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
+                    mset(v[1] * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], 4)
+                end
+            end
+        end
+    end
+end
+
 function _draw()
     cls()
     local map_x = player.face * MAP_SIZE_IN_TILES
@@ -179,7 +205,7 @@ faces = {BASE = 0, FRONT = 1, RIGHT = 2, BACK = 3, LEFT = 4, TOP = 5}
 -- List of connections between faces where connections[CURRENT_FACE][EXIT_DIRECTION] = {[NEW_FACE], [ENTRY_DIRECTION]}.
 -- This means the pairs are sorted in exit direction north, east, south, west as in the directions object.
 
-connections = { -- TODO (RobotGandhi): Double check these, could be incorrect. Also very disorienting, even if correct.
+connections = {
     {{faces.FRONT, directions.SOUTH}, {faces.RIGHT, directions.WEST}, {faces.BACK, directions.NORTH}, {faces.LEFT, directions.EAST}},  -- BASE
     {{faces.TOP, directions.SOUTH}, {faces.RIGHT, directions.NORTH}, {faces.BASE, directions.NORTH}, {faces.LEFT, directions.NORTH}},      -- FRONT
     {{faces.FRONT, directions.EAST}, {faces.TOP, directions.EAST}, {faces.BACK, directions.EAST}, {faces.BASE, directions.EAST}},       -- RIGHT
@@ -226,6 +252,7 @@ function traverse(exit_direction, offset)
     exit_direction = exit_direction % 4
     local new_pos = connections[player.face + 1][exit_direction + 1]
     update_map(player.face, new_pos[1])
+    update_boxes(new_pos[1] + 1)
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
