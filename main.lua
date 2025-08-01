@@ -131,6 +131,7 @@ end
 
 -- Move boxes according to the gravity of the current face.
 function update_boxes(face)
+    face_zero_indexed = face - 1
     for k, v in pairs(connections[face]) do
         for x = 0, MAP_SIZE_IN_TILES - 1 do
             for y = 0, MAP_SIZE_IN_TILES - 1 do
@@ -175,9 +176,27 @@ function update_boxes(face)
                         end
                     end
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
-                    local face_to_place = (escaped_screen and face - 1) or v[1]
+                    local face_to_place = (escaped_screen and face_zero_indexed) or v[1]
                     mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], 4)
                 end
+            end
+        end
+    end
+    
+    local opposite_face = 0
+    if face_zero_indexed == faces.BASE then opposite_face = faces.TOP
+    elseif face_zero_indexed == faces.FRONT then opposite_face = faces.BACK
+    elseif face_zero_indexed == faces.RIGHT then opposite_face = faces.LEFT
+    elseif face_zero_indexed == faces.BACK then opposite_face = faces.FRONT
+    elseif face_zero_indexed == faces.LEFT then opposite_face = faces.RIGHT
+    elseif face_zero_indexed == faces.TOP then opposite_face = faces.BASE
+    end
+                          
+    for x = 0, MAP_SIZE_IN_TILES - 1 do
+        for y = 0, MAP_SIZE_IN_TILES - 1 do
+            if mget(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == 4 then
+                    mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
+                    mset(face_zero_indexed * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 4)
             end
         end
     end
