@@ -15,6 +15,18 @@ GLOBAL_ROTATION = 0
 MAP_SIZE_IN_TILES = 16
 MAP_SIZE = MAP_SIZE_IN_TILES * 8
 
+S = {
+    WALL = {
+        TILE = 17,
+        WALL = 33,
+    },
+    BOX = {
+        TILE = 18,
+        WALL = 34,
+    }
+}
+
+
 
 function _update()
     player_update()
@@ -135,7 +147,7 @@ function update_boxes(face)
     for k, v in pairs(connections[face]) do
         for x = 0, MAP_SIZE_IN_TILES - 1 do
             for y = 0, MAP_SIZE_IN_TILES - 1 do
-                if mget(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == 4 then
+                if mget(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == S.BOX.TILE then
                     local falling_direction = (v[2] + GLOBAL_ROTATION) % 4
                     local new_pos = {x, y}
                     local step = {0, 0}
@@ -177,7 +189,7 @@ function update_boxes(face)
                     end
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                     local face_to_place = (escaped_screen and face_zero_indexed) or v[1]
-                    mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], 4)
+                    mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], S.BOX.TILE)
                 end
             end
         end
@@ -194,9 +206,9 @@ function update_boxes(face)
                           
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
-            if mget(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == 4 then
+            if mget(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == S.BOX.TILE then
                     mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
-                    mset(face_zero_indexed * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 4)
+                    mset(face_zero_indexed * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, S.BOX.TILE)
             end
         end
     end
@@ -207,33 +219,51 @@ function _draw()
     local map_x = player.face * MAP_SIZE_IN_TILES
     for x=0,MAP_SIZE_IN_TILES-1 do
         for y=0,MAP_SIZE_IN_TILES-1 do
-            draw_flag0_underlays(map_x, x, y)
+            draw_tile_walls(map_x, x, y)
+            draw_box_walls(map_x, x, y)
+        end
+    end
+    
+    draw_player()
+    map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
+    for x=0,MAP_SIZE_IN_TILES-1 do
+        for y=0,MAP_SIZE_IN_TILES-1 do
             draw_boxes(map_x, x, y)
         end
     end
-    map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
 
-    spr(player.sprite, player.x - (player.face*MAP_SIZE), player.y)
     -- draw the player's pixel position
     print("Face: "..player.face, 0, 10, 2)
     print("Angle: "..GLOBAL_ROTATION, 0, 20, 2)
 end
 
--- Draw tile 33 beneath all tiles with flag 0 set on the current face
-function draw_flag0_underlays(map_x, x, y)
+
+
+function draw_tile_walls(map_x, x, y)
     local tile = mget(map_x + x, y)
-    if fget(tile, 0) then
-        -- draw tile 33 beneath, offset 8px down
-        mapdrawtile(33, x*8, y*8 + 8)
+    if tile == S.WALL.TILE then
+        mapdrawtile(S.WALL.WALL, x*8, y*8 + 8)
     end
 end
+
+function draw_player()
+    -- Draw the player sprite at the current position
+    spr(player.sprite, player.x - (player.face * MAP_SIZE), player.y + 4)
+end
+
 
 -- Search for tile 4 (boxes) in the designated map area (directly below the face)
 function draw_boxes(map_x, x, y)
     local tile = mget(map_x + x, y + MAP_SIZE_IN_TILES)
-    if tile == 4 then
-        -- draw tile 4 in that position
-        mapdrawtile(4, x*8, y*8)
+    if tile == S.BOX.TILE then
+        mapdrawtile(S.BOX.TILE, x*8, y*8)
+    end
+end
+
+function draw_box_walls(map_x, x, y)
+    local tile = mget(map_x + x, y + MAP_SIZE_IN_TILES)
+    if tile == S.BOX.TILE then
+        mapdrawtile(S.BOX.WALL, x*8, y*8 + 8) -- draw the box on the face and below it
     end
 end
 
