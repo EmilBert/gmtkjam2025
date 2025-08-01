@@ -131,8 +131,14 @@ end
 
 function _draw()
     cls()
-    draw_flag0_underlays()
-    map(player.face * MAP_SIZE_IN_TILES, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
+    local map_x = player.face * MAP_SIZE_IN_TILES
+    for x=0,MAP_SIZE_IN_TILES-1 do
+        for y=0,MAP_SIZE_IN_TILES-1 do
+            draw_flag0_underlays(map_x, x, y)
+            draw_boxes(map_x, x, y)
+        end
+    end
+    map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
 
     spr(player.sprite, player.x - (player.face*MAP_SIZE), player.y)
     -- draw the player's pixel position
@@ -141,16 +147,20 @@ function _draw()
 end
 
 -- Draw tile 33 beneath all tiles with flag 0 set on the current face
-function draw_flag0_underlays()
-    local map_x = player.face * MAP_SIZE_IN_TILES
-    for y=0,MAP_SIZE_IN_TILES-1 do
-        for x=0,MAP_SIZE_IN_TILES-1 do
-            local tile = mget(map_x + x, y)
-            if fget(tile, 0) then
-                -- draw tile 33 beneath, offset 8px down
-                mapdrawtile(33, x*8, y*8 + 8)
-            end
-        end
+function draw_flag0_underlays(map_x, x, y)
+    local tile = mget(map_x + x, y)
+    if fget(tile, 0) then
+        -- draw tile 33 beneath, offset 8px down
+        mapdrawtile(33, x*8, y*8 + 8)
+    end
+end
+
+-- Search for tile 4 (boxes) in the designated map area (directly below the face)
+function draw_boxes(map_x, x, y)
+    local tile = mget(map_x + x, y + MAP_SIZE_IN_TILES)
+    if tile == 4 then
+        -- draw tile 4 in that position
+        mapdrawtile(4, x*8, y*8)
     end
 end
 
