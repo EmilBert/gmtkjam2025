@@ -138,17 +138,30 @@ function update_boxes(face)
                     local falling_direction = (v[2] + GLOBAL_ROTATION) % 4
                     local new_pos = {x, y}
                     local step = {0, 0}
+                    local escaped_screen = false
                     if falling_direction % 2 == 1 then -- falling in y-direction
                         step[1] = (falling_direction == directions.EAST and 1) or -1
                     else
                         step[2] = (falling_direction == directions.SOUTH and 1) or -1
                     end
-                    while not fget(mget(new_pos[1] + step[1], new_pos[2] + step[2]), 0) do
+                    while new_pos[1] == 0 or new_pos[2] == 0 
+                        or new_pos[1] == MAP_SIZE_IN_TILES - 1 or new_pos[2] == MAP_SIZE_IN_TILES - 1 
+                        or not fget(mget(v[1] * MAP_SIZE_IN_TILES + new_pos[1] + step[1], new_pos[2] + step[2]), 0) do
+
                         new_pos[1] += step[1]
                         new_pos[2] += step[2]
+                        if not in_rect(new_pos[1], new_pos[2], 1, 1, 13, 13) then
+                            new_pos = (falling_direction == directions.NORTH and {x, 15}) or
+                            (falling_direction == directions.EAST and {0, y}) or
+                            (falling_direction == directions.SOUTH and {x, 0}) or
+                            (falling_direction == directions.WEST and {15, y}) 
+                            escaped_screen = true
+                            break
+                        end
                     end
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
-                    mset(v[1] * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], 4)
+                    local face_to_place = (escaped_screen and face - 1) or v[1]
+                    mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], 4)
                 end
             end
         end
