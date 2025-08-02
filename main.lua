@@ -11,6 +11,7 @@ player = {
 }
 
 GLOBAL_ROTATION = 0
+LAST_FALLING_DIRECTION = 0
 
 MAP_SIZE_IN_TILES = 16
 MAP_SIZE = MAP_SIZE_IN_TILES * 8
@@ -110,6 +111,7 @@ end
 -- Update map based on current cube rotation and player position.
 function update_map(previous_face, current_face)
     local map_segment = {}
+    local box_map_segment = {}
     local angle = cube_rotation_lookup[previous_face][current_face] or 0
     
     if angle == 0 then
@@ -126,8 +128,17 @@ function update_map(previous_face, current_face)
                     (angle == -90 and mget(i * MAP_SIZE_IN_TILES + 15 - k, j)) or 
                     (angle == 180 and mget(i * MAP_SIZE_IN_TILES + 15 - j, 15 - k)) or 
                     (angle == 90 and mget(i * MAP_SIZE_IN_TILES + k, 15 - j)) or {}
+
+                -- Rotate all map segments based on the previous and current face.
+                
+                local new_box_tile = 
+                    (angle == -90 and mget(i * MAP_SIZE_IN_TILES + 15 - k, MAP_SIZE_IN_TILES + j)) or 
+                    (angle == 180 and mget(i * MAP_SIZE_IN_TILES + 15 - j, MAP_SIZE_IN_TILES + 15 - k)) or 
+                    (angle == 90 and mget(i * MAP_SIZE_IN_TILES + k, MAP_SIZE_IN_TILES + 15 - j)) or {}
                     
                 map_segment[(i * MAP_SIZE_IN_TILES * MAP_SIZE_IN_TILES) + (j * MAP_SIZE_IN_TILES) + k] = new_tile
+                    
+                box_map_segment[(i * MAP_SIZE_IN_TILES * MAP_SIZE_IN_TILES) + (j * MAP_SIZE_IN_TILES) + k] = new_box_tile
             end
         end
     end
@@ -136,6 +147,7 @@ function update_map(previous_face, current_face)
         for j = 0, MAP_SIZE_IN_TILES - 1 do
             for k = 0, MAP_SIZE_IN_TILES - 1 do
                 mset(i * MAP_SIZE_IN_TILES + j, k, map_segment[(i * MAP_SIZE_IN_TILES * MAP_SIZE_IN_TILES) + (j * MAP_SIZE_IN_TILES) + k])
+                mset(i * MAP_SIZE_IN_TILES + j, k + MAP_SIZE_IN_TILES, box_map_segment[(i * MAP_SIZE_IN_TILES * MAP_SIZE_IN_TILES) + (j * MAP_SIZE_IN_TILES) + k])
             end
         end
     end
@@ -143,8 +155,7 @@ end
 
 -- Move boxes according to the gravity of the current face.
 function update_boxes(face)
-    face_zero_indexed = face - 1
-    for k, v in pairs(connections[face]) do
+    for k, v in pairs(connections[face + 1]) do
         for x = 0, MAP_SIZE_IN_TILES - 1 do
             for y = 0, MAP_SIZE_IN_TILES - 1 do
                 if mget(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == S.BOX.TILE then
@@ -158,37 +169,27 @@ function update_boxes(face)
                         step[2] = (falling_direction == directions.SOUTH and 1) or -1
                     end
                     -- TODO (RobotGandhi): Boxes can "merge" if they end up on the same square.
-                    while true do 
-                        local should_break = false
-                        if fget(mget(v[1] * MAP_SIZE_IN_TILES + new_pos[1] + step[1], new_pos[2] + step[2]), 0) then should_break = true end
-                        if not in_rect(new_pos[1], new_pos[2], 1, 1, 13, 13) then
-                            if falling_direction == directions.NORTH and new_pos[2] == 0 then 
-                                new_pos = {x, 15}
-                                should_break = true
-                                escaped_screen = true
-                            elseif falling_direction == directions.EAST and new_pos[1] == 15 then 
-                                new_pos = {0, y}
-                                should_break = true
-                                escaped_screen = true
-                            elseif falling_direction == directions.SOUTH and new_pos[2] == 15 then 
-                                new_pos = {x, 0}
-                                should_break = true
-                                escaped_screen = true
-                            elseif falling_direction == directions.WEST and new_pos[1] == 0 then 
-                                new_pos = {15, y}
-                                should_break = true
-                                escaped_screen = true
-                            end
-                        end
-                        if should_break then
-                            break
-                        else
-                            new_pos[1] += step[1]
-                            new_pos[2] += step[2]
+                    while in_rect(new_pos[1], new_pos[2], 0, 0, 15, 15) and not fget(mget(v[1] * MAP_SIZE_IN_TILES + new_pos[1] + step[1], new_pos[2] + step[2]), 0) do
+                        new_pos[1] += step[1]
+                        new_pos[2] += step[2]
+                    end
+                    if not in_rect(new_pos[1], new_pos[2], 1, 1, 13, 13) then
+                        if falling_direction == directions.NORTH and new_pos[2] == 0 then 
+                            new_pos = {x, 15}
+                            escaped_screen = true
+                        elseif falling_direction == directions.EAST and new_pos[1] == 15 then 
+                            new_pos = {0, y}
+                            escaped_screen = true
+                        elseif falling_direction == directions.SOUTH and new_pos[2] == 15 then 
+                            new_pos = {x, 0}
+                            escaped_screen = true
+                        elseif falling_direction == directions.WEST and new_pos[1] == 0 then 
+                            new_pos = {15, y}
+                            escaped_screen = true
                         end
                     end
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
-                    local face_to_place = (escaped_screen and face_zero_indexed) or v[1]
+                    local face_to_place = (escaped_screen and face) or v[1]
                     mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], S.BOX.TILE)
                 end
             end
@@ -196,19 +197,19 @@ function update_boxes(face)
     end
     
     local opposite_face = 0
-    if face_zero_indexed == faces.BASE then opposite_face = faces.TOP
-    elseif face_zero_indexed == faces.FRONT then opposite_face = faces.BACK
-    elseif face_zero_indexed == faces.RIGHT then opposite_face = faces.LEFT
-    elseif face_zero_indexed == faces.BACK then opposite_face = faces.FRONT
-    elseif face_zero_indexed == faces.LEFT then opposite_face = faces.RIGHT
-    elseif face_zero_indexed == faces.TOP then opposite_face = faces.BASE
+    if face == faces.BASE then opposite_face = faces.TOP
+    elseif face == faces.FRONT then opposite_face = faces.BACK
+    elseif face == faces.RIGHT then opposite_face = faces.LEFT
+    elseif face == faces.BACK then opposite_face = faces.FRONT
+    elseif face == faces.LEFT then opposite_face = faces.RIGHT
+    elseif face == faces.TOP then opposite_face = faces.BASE
     end
                           
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
             if mget(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == S.BOX.TILE then
                     mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
-                    mset(face_zero_indexed * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, S.BOX.TILE)
+                    mset(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, S.BOX.TILE)
             end
         end
     end
@@ -299,7 +300,6 @@ cube_rotation_lookup = {
     [faces.TOP] = {
         [faces.RIGHT] = 180,
         [faces.LEFT] = 180,
-        
     },
     [faces.LEFT] = {
         [faces.TOP] = 180,
@@ -328,8 +328,8 @@ function traverse(exit_direction, offset)
     local perspective_exit_direction = exit_direction - GLOBAL_ROTATION
     perspective_exit_direction = exit_direction % 4
     local new_pos = connections[player.face + 1][perspective_exit_direction + 1]
-    update_boxes(new_pos[1] + 1)
     update_map(player.face, new_pos[1])
+    update_boxes(new_pos[1])
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
