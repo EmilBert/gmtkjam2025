@@ -11,7 +11,6 @@ player = {
 }
 
 GLOBAL_ROTATION = 0
-LAST_FALLING_DIRECTION = 0
 
 MAP_SIZE_IN_TILES = 16
 MAP_SIZE = MAP_SIZE_IN_TILES * 8
@@ -174,22 +173,32 @@ function update_boxes(face)
                         new_pos[2] += step[2]
                     end
                     if not in_rect(new_pos[1], new_pos[2], 1, 1, 13, 13) then
-                        if falling_direction == directions.NORTH and new_pos[2] == 0 then 
+                        if falling_direction == directions.NORTH and new_pos[2] <= 0 then 
                             new_pos = {x, 15}
                             escaped_screen = true
-                        elseif falling_direction == directions.EAST and new_pos[1] == 15 then 
+                        elseif falling_direction == directions.EAST and new_pos[1] >= 15 then 
                             new_pos = {0, y}
                             escaped_screen = true
-                        elseif falling_direction == directions.SOUTH and new_pos[2] == 15 then 
+                        elseif falling_direction == directions.SOUTH and new_pos[2] >= 15 then 
                             new_pos = {x, 0}
                             escaped_screen = true
-                        elseif falling_direction == directions.WEST and new_pos[1] == 0 then 
+                        elseif falling_direction == directions.WEST and new_pos[1] <= 0 then 
                             new_pos = {15, y}
                             escaped_screen = true
                         end
                     end
+                    if escaped_screen then
+                        if cube_rotation_lookup[v[1]][face] == 90 then
+                            new_pos = {new_pos[2], 15 - new_pos[1]}
+                        elseif cube_rotation_lookup[v[1]][face] == 180 then
+                            new_pos = {15 - new_pos[1], 15 - new_pos[2]}
+                        elseif cube_rotation_lookup[v[1]][face] == -90 then
+                            new_pos = {15 - new_pos[2], new_pos[1]}
+                        end
+                    end
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                     local face_to_place = (escaped_screen and face) or v[1]
+                    BOX_DESTINATION = "cur_face: "..face.." pot_face: "..v[1].." res: "..face_to_place
                     mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], S.BOX.TILE)
                 end
             end
