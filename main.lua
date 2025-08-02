@@ -325,15 +325,17 @@ cube_rotation_lookup = {
     offset: how far from the edge is the character? Counting from the left on north/south and the top on east/west.
 ]]
 function traverse(exit_direction, offset)
-    exit_direction -= GLOBAL_ROTATION
-    exit_direction = exit_direction % 4
-    local new_pos = connections[player.face + 1][exit_direction + 1]
+    local perspective_exit_direction = exit_direction - GLOBAL_ROTATION
+    perspective_exit_direction = exit_direction % 4
+    local new_pos = connections[player.face + 1][perspective_exit_direction + 1]
     update_boxes(new_pos[1] + 1)
     update_map(player.face, new_pos[1])
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
+    local player_offset = player.width * 1.5
+    player_offset += (exit_direction == directions.NORTH or exit_direction == directions.WEST) and player.width * 0.75 or -player.width * 0.75
     new_dir = new_dir % 4
-    player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player.width*2)) or (new_dir == directions.WEST and player.width*2) or offset)
-    player.y = ((new_dir == directions.SOUTH and MAP_SIZE - (player.height*2)) or (new_dir == directions.NORTH and player.height*2) or offset)
+    player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player_offset)) or (new_dir == directions.WEST and player_offset) or offset)
+    player.y = ((new_dir == directions.SOUTH and MAP_SIZE - (player_offset)) or (new_dir == directions.NORTH and player_offset) or offset)
 end
