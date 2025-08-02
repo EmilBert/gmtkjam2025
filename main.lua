@@ -44,7 +44,7 @@ function _init()
         end
     end
     
-    collect_static_boxes()
+    collect_static_boxes(faces.BASE)
 end
 
 function _update()
@@ -172,12 +172,13 @@ function update_map(previous_face, current_face)
 end
 
 
-function collect_static_boxes()
+function collect_static_boxes(face)
+    local occupied_positions = {} -- Track occupied positions
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
-            local box_tile = mget(player.face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
+            local box_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
             if fget(box_tile, 1) then
-                add(boxes_to_draw, {x = x * 8, y = y * 8, tile = box_tile, fall_height = 0})
+                add_box_to_draw(x * 8, y * 8, box_tile, 0, occupied_positions)
             end
         end
     end
@@ -185,7 +186,10 @@ end
 
 -- Move boxes according to the gravity of the current face.
 function update_boxes(face)
-    boxes_to_draw = {}
+    boxes_to_draw = {} -- Clear the array first
+    local occupied_positions = {} -- Track occupied positions to prevent duplicates
+    local opposite_face = get_opposite_face(face)
+    
     for k, v in pairs(connections[face + 1]) do
         for x = 0, MAP_SIZE_IN_TILES - 1 do
             for y = 0, MAP_SIZE_IN_TILES - 1 do
@@ -234,45 +238,57 @@ function update_boxes(face)
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                     local face_to_place = (escaped_screen and face) or v[1]
                     BOX_DESTINATION = "cur_face: "..face.." pot_face: "..v[1].." res: "..face_to_place
-                    mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], box_tile)
+                    
+                    -- Only place the box if the target position is empty
+                    local target_tile = mget(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2])
+                    if not fget(target_tile, 1) then -- Check if position doesn't already have a box
+                        mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], box_tile)
+                    end
                     
                     if escaped_screen then
-                        add_box_to_draw(new_pos[1] * 8, new_pos[2] * 8, box_tile, fall_distance)
+                        add_box_to_draw(new_pos[1] * 8, new_pos[2] * 8, box_tile, fall_distance, occupied_positions)
                     end
 
                 end
             end
         end
     end
-    
-    local opposite_face = 0
-    if face == faces.BASE then opposite_face = faces.TOP
-    elseif face == faces.FRONT then opposite_face = faces.BACK
-    elseif face == faces.RIGHT then opposite_face = faces.LEFT
-    elseif face == faces.BACK then opposite_face = faces.FRONT
-    elseif face == faces.LEFT then opposite_face = faces.RIGHT
-    elseif face == faces.TOP then opposite_face = faces.BASE
-    end
-                          
+
+    collect_static_boxes(face)
+              
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
             local box_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
             if fget(box_tile, 1) then
                 mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                 mset(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, box_tile)
-                add_box_to_draw(x * 8, y * 8, box_tile, MAP_SIZE_IN_TILES)
+                add_box_to_draw(x * 8, y * 8, box_tile, MAP_SIZE_IN_TILES, occupied_positions)
             end
         end
     end
 end
 
-function add_box_to_draw(x, y, tile, fall_height)
-    add(boxes_to_draw, {
-        x = x,
-        y = y,
-        tile = tile,
-        fall_height = fall_height
-    })
+function get_opposite_face(face)
+    if face == faces.BASE then return faces.TOP
+    elseif face == faces.FRONT then return faces.BACK
+    elseif face == faces.RIGHT then return faces.LEFT
+    elseif face == faces.BACK then return faces.FRONT
+    elseif face == faces.LEFT then return faces.RIGHT
+    elseif face == faces.TOP then return faces.BASE
+    end
+end
+
+function add_box_to_draw(x, y, tile, fall_height, occupied_positions)
+    local pos_key = x..","..y -- Create a unique key for this position
+    if not occupied_positions[pos_key] then
+        occupied_positions[pos_key] = true
+        add(boxes_to_draw, {
+            x = x,
+            y = y,
+            tile = tile,
+            fall_height = fall_height * 8
+        })
+    end
 end
 
 
@@ -282,6 +298,7 @@ function _draw()
     
     -- Automatically draw wall sprites for all tiles with collision flags
     draw_map_walls(map_x)
+    draw_box_fall_shadow()
     draw_box_walls()
     
     -- Draw player
@@ -300,15 +317,43 @@ function _draw()
     -- print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
 end
 
+
+function draw_box_fall_shadow ()
+    for _, box in pairs(boxes_to_draw) do
+        -- Draw a shadow circle under the box, smaller for higher falls (radius 1 at max, 4 just before landing)
+        local shadow_max = 128
+        local shadow_min_radius = 1
+        local shadow_max_radius = 4
+        local fall = min(box.fall_height, shadow_max)
+        -- When fall=shadow_max, radius=1; when fall=0, radius=4
+        local radius = shadow_max_radius - (shadow_max_radius - shadow_min_radius) * (fall / shadow_max)
+        circfill(box.x + 3, box.y + 7, radius-1, 1) -- color 5 is dark gray
+    end
+end
+
 function draw_boxes()
     for _, box in pairs(boxes_to_draw) do
-        mapdrawtile(box.tile, box.x, box.y)
+        -- Ease out the fall for a smoother animation
+        local fall_offset = box.fall_height
+        if fall_offset > 0 then
+            -- Use a quadratic ease-out for a more natural fall
+            fall_offset = flr((fall_offset / 8) ^ 1.5) * 2
+        end
+        mapdrawtile(box.tile, box.x, box.y - fall_offset)
+        if box.fall_height > 0 then
+            box.fall_height = max(0, box.fall_height - max(1, flr(box.fall_height / 6)))
+        end
     end
 end
 
 function draw_box_walls()
     for _, box in pairs(boxes_to_draw) do
-        mapdrawtile(wall_lookup[box.tile], box.x, box.y + 8)
+        -- Match the wall's fall offset to the box
+        local fall_offset = box.fall_height
+        if fall_offset > 0 then
+            fall_offset = flr((fall_offset / 8) ^ 1.5) * 2
+        end
+        mapdrawtile(wall_lookup[box.tile], box.x, box.y + 8 - fall_offset)
     end
 end
 
