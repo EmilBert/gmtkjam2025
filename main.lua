@@ -10,11 +10,6 @@ player = {
     face = 0,
 }
 
-boxes_to_draw = {
-    [1] = {x = 0, y = 0, tile = 0, falling_distance = 0}, -- Example box, can be filled with actual box data
-}
-wall_lookup = {}
-
 GLOBAL_ROTATION = 0
 LAST_FALLING_DIRECTION = 0
 
@@ -32,22 +27,7 @@ S = {
     }
 }
 
-function _init()
-    for key, value in pairs(S) do
-        if value.TILE and value.WALL then
-            wall_lookup[value.TILE] = value.WALL
-        end
-    end
 
-    for x = 0, MAP_SIZE_IN_TILES - 1 do
-        for y = 0, MAP_SIZE_IN_TILES - 1 do
-            local tile = mget(x, y + MAP_SIZE_IN_TILES)
-            if fget(tile, 1) then
-                add_to_boxes_to_draw(x, y, tile, 0)
-            end
-        end
-    end
-end
 
 function _update()
     player_update()
@@ -60,8 +40,7 @@ end
 function is_solid_at(px, py)
     local tile_x = flr(px / 8) -- pga spritesen är 8x8
     local tile_y = flr(py / 8)
-    -- return fget(mget(tile_x, tile_y), 0) or fget(mget(tile_x, tile_y + MAP_SIZE_IN_TILES), 0)
-    return false
+    return fget(mget(tile_x, tile_y), 0) or fget(mget(tile_x, tile_y + MAP_SIZE_IN_TILES), 0)
 end
 
 function in_rect(px, py, rx, ry, rw, rh)
@@ -176,13 +155,10 @@ end
 
 -- Move boxes according to the gravity of the current face.
 function update_boxes(face)
-    boxes_to_draw = {}
     for k, v in pairs(connections[face + 1]) do
         for x = 0, MAP_SIZE_IN_TILES - 1 do
             for y = 0, MAP_SIZE_IN_TILES - 1 do
-                local box_tile = mget(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
-                if fget(box_tile, 1) then
-                    local falling_distance = 0
+                if mget(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == S.BOX.TILE then
                     local falling_direction = (v[2] + GLOBAL_ROTATION) % 4
                     local new_pos = {x, y}
                     local step = {0, 0}
@@ -196,7 +172,6 @@ function update_boxes(face)
                     while in_rect(new_pos[1], new_pos[2], 0, 0, 15, 15) and not fget(mget(v[1] * MAP_SIZE_IN_TILES + new_pos[1] + step[1], new_pos[2] + step[2]), 0) do
                         new_pos[1] += step[1]
                         new_pos[2] += step[2]
-                        falling_distance += 1
                     end
                     if not in_rect(new_pos[1], new_pos[2], 1, 1, 13, 13) then
                         if falling_direction == directions.NORTH and new_pos[2] == 0 then 
@@ -216,9 +191,6 @@ function update_boxes(face)
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                     local face_to_place = (escaped_screen and face) or v[1]
                     mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], S.BOX.TILE)
-                    if escaped_screen then
-                        add_to_boxes_to_draw(x, y, box_tile, falling_distance)
-                    end
                 end
             end
         end
@@ -232,21 +204,15 @@ function update_boxes(face)
     elseif face == faces.LEFT then opposite_face = faces.RIGHT
     elseif face == faces.TOP then opposite_face = faces.BASE
     end
-    -- Move boxes from the opposite face to the current face.       
+                          
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
-            local box_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
-            if fget(box_tile, 1) then
-                    add_to_boxes_to_draw(x, y, box_tile, 16)
+            if mget(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == S.BOX.TILE then
                     mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                     mset(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, S.BOX.TILE)
             end
         end
     end
-end
-
-add_to_boxes_to_draw = function(x, y, tile, falling_distance)
-    add(boxes_to_draw, {x = x, y = y, tile = tile, falling_distance = falling_distance * 8})
 end
 
 function _draw()
@@ -255,13 +221,17 @@ function _draw()
     for x=0,MAP_SIZE_IN_TILES-1 do
         for y=0,MAP_SIZE_IN_TILES-1 do
             draw_tile_walls(map_x, x, y)
+            draw_box_walls(map_x, x, y)
         end
     end
-    draw_box_walls()
+    
     draw_player()
-    draw_boxes()
     map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
-      
+    for x=0,MAP_SIZE_IN_TILES-1 do
+        for y=0,MAP_SIZE_IN_TILES-1 do
+            draw_boxes(map_x, x, y)
+        end
+    end
 
     -- draw the player's pixel position
     print("Face: "..player.face, 0, 10, 2)
@@ -284,24 +254,18 @@ end
 
 
 -- Search for tile 4 (boxes) in the designated map area (directly below the face)
-function draw_boxes()
-    for box in all(boxes_to_draw) do
-        local box_x = box.x
-        local box_y = box.y
-        local tile = box.tile
-        mapdrawtile(S.BOX.WALL, box_x, box_y + box.falling_distance)
+function draw_boxes(map_x, x, y)
+    local tile = mget(map_x + x, y + MAP_SIZE_IN_TILES)
+    if tile == S.BOX.TILE then
+        mapdrawtile(S.BOX.TILE, x*8, y*8)
     end
 end
 
-function draw_box_walls()
-    -- for box in boxes_to_draw do
-    --     local box_x = box.x * 8 + (player.face * MAP_SIZE)
-    --     local box_y = box.y * 8 + 8
-    --     local tile = box.tile
-    --     if tile == S.BOX.TILE then
-    --         mapdrawtile(S.BOX.WALL, box_x, box_y + box.falling_distance)
-    --     end
-    -- end
+function draw_box_walls(map_x, x, y)
+    local tile = mget(map_x + x, y + MAP_SIZE_IN_TILES)
+    if tile == S.BOX.TILE then
+        mapdrawtile(S.BOX.WALL, x*8, y*8 + 8) -- draw the box on the face and below it
+    end
 end
 
 -- Helper to draw a single tile at screen position
@@ -361,15 +325,17 @@ cube_rotation_lookup = {
     offset: how far from the edge is the character? Counting from the left on north/south and the top on east/west.
 ]]
 function traverse(exit_direction, offset)
-    exit_direction -= GLOBAL_ROTATION
-    exit_direction = exit_direction % 4
-    local new_pos = connections[player.face + 1][exit_direction + 1]
+    local perspective_exit_direction = exit_direction - GLOBAL_ROTATION
+    perspective_exit_direction = exit_direction % 4
+    local new_pos = connections[player.face + 1][perspective_exit_direction + 1]
     update_map(player.face, new_pos[1])
     update_boxes(new_pos[1])
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
+    local player_offset = player.width * 1.5
+    player_offset += (exit_direction == directions.NORTH or exit_direction == directions.WEST) and player.width * 0.75 or -player.width * 0.75
     new_dir = new_dir % 4
-    player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player.width*2)) or (new_dir == directions.WEST and player.width*2) or offset)
-    player.y = ((new_dir == directions.SOUTH and MAP_SIZE - (player.height*2)) or (new_dir == directions.NORTH and player.height*2) or offset)
+    player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player_offset)) or (new_dir == directions.WEST and player_offset) or offset)
+    player.y = ((new_dir == directions.SOUTH and MAP_SIZE - (player_offset)) or (new_dir == directions.NORTH and player_offset) or offset)
 end
