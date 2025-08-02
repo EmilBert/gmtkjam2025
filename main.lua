@@ -60,7 +60,8 @@ end
 function is_solid_at(px, py)
     local tile_x = flr(px / 8) -- pga spritesen är 8x8
     local tile_y = flr(py / 8)
-    return fget(mget(tile_x, tile_y), 0) or fget(mget(tile_x, tile_y + MAP_SIZE_IN_TILES), 0)
+    -- return fget(mget(tile_x, tile_y), 0) or fget(mget(tile_x, tile_y + MAP_SIZE_IN_TILES), 0)
+    return false
 end
 
 function in_rect(px, py, rx, ry, rw, rh)
