@@ -26,13 +26,32 @@ S = {
     }
 }
 
+wall_lookup = {}
 
+boxes_to_draw = {}
+
+function _init()
+    -- Populate wall lookup for predefined tiles
+    for _, tile in pairs(S) do
+        wall_lookup[tile.TILE] = tile.WALL
+    end
+    
+    -- Auto-populate wall lookup for all tiles with collision flags
+    -- This assumes wall sprites are 16 tiles higher than their base tile
+    for tile_id = 0, 255 do
+        if fget(tile_id, 0) and not wall_lookup[tile_id] then
+            wall_lookup[tile_id] = tile_id + 16
+        end
+    end
+    
+    collect_static_boxes()
+end
 
 function _update()
     player_update()
 
     if not stat(57) then
-        music(0)
+        -- music(0)
     end
 end
 
@@ -152,13 +171,28 @@ function update_map(previous_face, current_face)
     end
 end
 
+
+function collect_static_boxes()
+    for x = 0, MAP_SIZE_IN_TILES - 1 do
+        for y = 0, MAP_SIZE_IN_TILES - 1 do
+            local box_tile = mget(player.face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
+            if fget(box_tile, 1) then
+                add(boxes_to_draw, {x = x * 8, y = y * 8, tile = box_tile, fall_height = 0})
+            end
+        end
+    end
+end
+
 -- Move boxes according to the gravity of the current face.
 function update_boxes(face)
+    boxes_to_draw = {}
     for k, v in pairs(connections[face + 1]) do
         for x = 0, MAP_SIZE_IN_TILES - 1 do
             for y = 0, MAP_SIZE_IN_TILES - 1 do
-                if mget(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == S.BOX.TILE then
+                local box_tile = mget(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
+                if fget(box_tile, 1) then
                     local falling_direction = (v[2] + GLOBAL_ROTATION) % 4
+                    local fall_distance = 0
                     local new_pos = {x, y}
                     local step = {0, 0}
                     local escaped_screen = false
@@ -171,6 +205,7 @@ function update_boxes(face)
                     while in_rect(new_pos[1], new_pos[2], 0, 0, 15, 15) and not fget(mget(v[1] * MAP_SIZE_IN_TILES + new_pos[1] + step[1], new_pos[2] + step[2]), 0) do
                         new_pos[1] += step[1]
                         new_pos[2] += step[2]
+                        fall_distance += 1
                     end
                     if not in_rect(new_pos[1], new_pos[2], 1, 1, 13, 13) then
                         if falling_direction == directions.NORTH and new_pos[2] <= 0 then 
@@ -199,7 +234,12 @@ function update_boxes(face)
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                     local face_to_place = (escaped_screen and face) or v[1]
                     BOX_DESTINATION = "cur_face: "..face.." pot_face: "..v[1].." res: "..face_to_place
-                    mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], S.BOX.TILE)
+                    mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], box_tile)
+                    
+                    if escaped_screen then
+                        add_box_to_draw(new_pos[1] * 8, new_pos[2] * 8, box_tile, fall_distance)
+                    end
+
                 end
             end
         end
@@ -216,33 +256,76 @@ function update_boxes(face)
                           
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
-            if mget(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y) == S.BOX.TILE then
-                    mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
-                    mset(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, S.BOX.TILE)
+            local box_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
+            if fget(box_tile, 1) then
+                mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
+                mset(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, box_tile)
+                add_box_to_draw(x * 8, y * 8, box_tile, MAP_SIZE_IN_TILES)
             end
         end
     end
 end
 
+function add_box_to_draw(x, y, tile, fall_height)
+    add(boxes_to_draw, {
+        x = x,
+        y = y,
+        tile = tile,
+        fall_height = fall_height
+    })
+end
+
+
 function _draw()
     cls()
     local map_x = player.face * MAP_SIZE_IN_TILES
-    for x=0,MAP_SIZE_IN_TILES-1 do
-        for y=0,MAP_SIZE_IN_TILES-1 do
-            draw_tile_walls(map_x, x, y)
-            draw_box_walls(map_x, x, y)
-        end
-    end
     
+    -- Automatically draw wall sprites for all tiles with collision flags
+    draw_map_walls(map_x)
+    draw_box_walls()
+    
+    -- Draw player
     draw_player()
+
+    -- Draw main tiles
     map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
+    
+    -- Draw boxes and their walls
+    draw_boxes()
+    
+    draw_minimap()
+
+    -- draw the player's pixel position
+    -- print("Face: "..player.face, 0, 10, 12)
+    -- print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
+end
+
+function draw_boxes()
+    for _, box in pairs(boxes_to_draw) do
+        mapdrawtile(box.tile, box.x, box.y)
+    end
+end
+
+function draw_box_walls()
+    for _, box in pairs(boxes_to_draw) do
+        mapdrawtile(wall_lookup[box.tile], box.x, box.y + 8)
+    end
+end
+
+function draw_map_walls(map_x)
+    -- Automatically draw wall sprites for all tiles with collision flags
     for x=0,MAP_SIZE_IN_TILES-1 do
         for y=0,MAP_SIZE_IN_TILES-1 do
-            draw_boxes(map_x, x, y)
+            local tile = mget(map_x + x, y)
+            -- Draw all wall tiles beneath this tile if present in lookup
+            local wall_tile = wall_lookup[tile]
+            while wall_tile do
+                mapdrawtile(wall_tile, x*8, y*8 + 8)
+                wall_tile = wall_lookup[wall_tile]
+            end
         end
     end
 
-    draw_minimap()
     -- draw the player's pixel position
     print("Face: "..player.face, 0, 10, 2)
     print("Angle: "..GLOBAL_ROTATION, 0, 20, 2)
@@ -254,7 +337,6 @@ function draw_minimap()
 end
 
 
-
 function draw_tile_walls(map_x, x, y)
     local tile = mget(map_x + x, y)
     if tile == S.WALL.TILE then
@@ -264,23 +346,7 @@ end
 
 function draw_player()
     -- Draw the player sprite at the current position
-    spr(player.sprite, player.x - (player.face * MAP_SIZE), player.y + 4)
-end
-
-
--- Search for tile 4 (boxes) in the designated map area (directly below the face)
-function draw_boxes(map_x, x, y)
-    local tile = mget(map_x + x, y + MAP_SIZE_IN_TILES)
-    if tile == S.BOX.TILE then
-        mapdrawtile(S.BOX.TILE, x*8, y*8)
-    end
-end
-
-function draw_box_walls(map_x, x, y)
-    local tile = mget(map_x + x, y + MAP_SIZE_IN_TILES)
-    if tile == S.BOX.TILE then
-        mapdrawtile(S.BOX.WALL, x*8, y*8 + 8) -- draw the box on the face and below it
-    end
+    spr(player.sprite, player.x - (player.face * MAP_SIZE), player.y + 2)
 end
 
 -- Helper to draw a single tile at screen position
@@ -362,6 +428,30 @@ function traverse(exit_direction, offset)
     new_dir = new_dir % 4
     player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player_offset)) or (new_dir == directions.WEST and player_offset) or offset)
     player.y = ((new_dir == directions.SOUTH and MAP_SIZE - (player_offset)) or (new_dir == directions.NORTH and player_offset) or offset)
+end
+
+--VFX & Canera
+camera_offset = 5
+
+-- Function to apply screen shake effect
+function screen_shake(amt, fade_factor)
+  local fade = fade_factor or 0.95
+  local offset_x=amt/2-rnd(amt)
+  local offset_y=amt/2-rnd(amt)
+  offset_x*=camera_offset
+  offset_y*=camera_offset
+  
+  camera(offset_x,offset_y)
+  camera_offset*=fade
+  if camera_offset<0.05 then
+    offset=0
+  end
+end
+
+-- Function to reset camera shake effect. Always call this after finishing a screen shake.
+function reset_shake() 
+    camera_offset = 0.2
+    camera(0,0)
 end
 
 --VFX & Canera
