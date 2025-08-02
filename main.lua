@@ -30,7 +30,7 @@ S = {
 
 function _update()
     player_update()
-    
+
     if not stat(57) then
         music(0)
     end
@@ -362,4 +362,28 @@ function traverse(exit_direction, offset)
     new_dir = new_dir % 4
     player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player_offset)) or (new_dir == directions.WEST and player_offset) or offset)
     player.y = ((new_dir == directions.SOUTH and MAP_SIZE - (player_offset)) or (new_dir == directions.NORTH and player_offset) or offset)
+end
+
+--VFX & Canera
+camera_offset = 5
+
+-- Function to apply screen shake effect
+function screen_shake(amt, fade_factor)
+  local fade = fade_factor or 0.95
+  local offset_x=amt/2-rnd(amt)
+  local offset_y=amt/2-rnd(amt)
+  offset_x*=camera_offset
+  offset_y*=camera_offset
+  
+  camera(offset_x,offset_y)
+  camera_offset*=fade
+  if camera_offset<0.05 then
+    offset=0
+  end
+end
+
+-- Function to reset camera shake effect. Always call this after finishing a screen shake.
+function reset_shake() 
+    camera_offset = 0.2
+    camera(0,0)
 end
