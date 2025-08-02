@@ -30,6 +30,8 @@ wall_lookup = {}
 
 boxes_to_draw = {}
 
+particles={}
+
 function _init()
     -- Populate wall lookup for predefined tiles
     for _, tile in pairs(S) do
@@ -64,6 +66,7 @@ end
 function in_rect(px, py, rx, ry, rw, rh)
     return px >= rx and px <= rx + rw and py >= ry and py <= ry + rh
 end
+
 
 function player_update()
     -- inputs baby
@@ -292,8 +295,8 @@ function _draw()
     
     -- Draw boxes and their walls
     draw_boxes()
-    
     draw_minimap()
+    draw_particles()
 
     -- draw the player's pixel position
     -- print("Face: "..player.face, 0, 10, 12)
@@ -327,8 +330,8 @@ function draw_map_walls(map_x)
     end
 
     -- draw the player's pixel position
-    print("Face: "..player.face, 0, 10, 2)
-    print("Angle: "..GLOBAL_ROTATION, 0, 20, 2)
+    -- print("Face: "..player.face, 0, 10, 2)
+    -- print("Angle: "..GLOBAL_ROTATION, 0, 20, 2)
 end
 
 function draw_minimap()
@@ -476,4 +479,99 @@ end
 function reset_shake() 
     camera_offset = 0.2
     camera(0,0)
+end
+
+-- particles --
+-- 0,1 xpos, ypos: x and y position
+-- 2 amt: amount of particles
+-- 3 frc: initial particle force
+-- 4 r_offset: random offset from position
+-- 5 spread: emitter spread, adjusted for angle
+-- 6 angle: the angle of the emitter
+-- 7 lifetime: how long the particle lives
+-- 8 start size: how big particle is initially
+-- 9 gravity_scale
+-- 10 col 1: the primary particle color
+-- 11 col 2: the secondary particle color
+-- Example: play_particles(player.x - (player.face * MAP_SIZE), player.y, 3, 7, 0.1, 0.1, 180, 4, 1, 1, 6, 7)
+function play_particles(xpos, ypos,amt,frc, 
+r_offset, spread, angle, lifetime, startsize, g_scale, col1, col2)
+
+ local theta = angle + (rnd(1) - 0.5) * spread
+    
+    for i=1,amt do
+        add(particles,{
+            -- initial position
+            x=xpos+rnd(r_offset),
+            y=ypos+rnd(r_offset),
+            -- x velocity
+            v_x = frc * cos(theta),
+            -- y velocity
+            v_y = frc * sin(theta),
+            -- graphics
+            radius= rnd(1) + startsize,
+            color1 = col1,
+            color2 = col2,
+            used_color = 0,
+            max_life = lifetime,
+            gravity_scale = g_scale,
+            life = 0,
+        })
+    end
+end
+
+function draw_particles(gravity)
+    local gravity = gravity or 1
+    for p in all(particles) do
+     circfill(p.x, p.y, 
+        p.radius,
+      p.used_color) 
+    end
+    
+    local i = 1
+    for p in all(particles) do
+        local dt = 1
+        -- apply gravity		
+        p.v_y += gravity * p.gravity_scale
+            
+        -- update position
+        p.x += p.v_x * dt
+        p.y += p.v_y * dt
+        
+        -- update graphics
+        p.life = move_towards(
+        p.life, p.max_life, 0.05)
+        
+        local life_ratio = (p.max_life 
+        - p.life) / p.max_life
+        
+        p.used_color = p.color1
+        if(life_ratio < 0.97) then
+            p.used_color = p.color2
+        end
+        
+        p.radius = p.radius * life_ratio
+        
+        if(life_ratio == 0) then
+            deli(particles, i)
+        end
+        
+        i += 1
+    end
+end
+
+-- Math utility
+function move_towards(val, target, rate)
+    if val > target then
+        val -= rate
+        if val < target then 
+            val = target 
+        end
+    elseif val < target then
+        val += rate
+        if val > target then 
+            val = target 
+        end
+    end
+    return val
 end
