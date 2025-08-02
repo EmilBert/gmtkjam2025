@@ -242,9 +242,15 @@ function _draw()
         end
     end
 
+    draw_minimap()
     -- draw the player's pixel position
     print("Face: "..player.face, 0, 10, 2)
     print("Angle: "..GLOBAL_ROTATION, 0, 20, 2)
+end
+
+function draw_minimap()
+    local minimap_padding = 4
+    spr(minimap_face_sprite_lookup[player.face], minimap_padding, MAP_SIZE - 8 * 2 - minimap_padding, 2,2)
 end
 
 
@@ -326,6 +332,15 @@ cube_rotation_lookup = {
     },
     [faces.BASE] = { -- No rotations from the base face.
     },
+}
+
+minimap_face_sprite_lookup = {
+    [faces.BASE] = 10,
+    [faces.FRONT] = 12,
+    [faces.RIGHT] = 14,
+    [faces.BACK] = 16,
+    [faces.LEFT] = 18,
+    [faces.TOP] = 20,
 }
 
 
