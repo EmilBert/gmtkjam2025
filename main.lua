@@ -5,7 +5,7 @@ player = {
     dy = 0,
     width = 8,
     height = 8,
-    sprite = 1,
+    sprite = 64,
     speed = 2,
     face = 0,
 
@@ -70,27 +70,49 @@ cables_to_draw = {}
 
 particles={}
 
+
+
+
+game_state = "start" -- 'start', 'transition', or 'play'
+logo_anim_timer = 0
+transition_timer = 0
+transition_length = 30 -- frames for fade
+
 function _init()
     -- Populate wall lookup for predefined tiles
     for _, tile in pairs(S) do
         wall_lookup[tile.TILE] = tile.WALL
     end
-    
     -- Auto-populate wall lookup for all tiles with collision flags
-    -- This assumes wall sprites are 16 tiles higher than their base tile
     for tile_id = 0, 255 do
         if fget(tile_id, 0) and not wall_lookup[tile_id] then
             wall_lookup[tile_id] = tile_id + 16
         end
     end
-    
     collect_static_boxes(faces.BASE)
     collect_static_cables(faces.BASE)
 end
 
-function _update()
-    player_update()
 
+
+
+function _update()
+    if game_state == "start" then
+        logo_anim_timer += 1
+        if btnp(4) or btnp(5) or btnp(0) or btnp(1) or btnp(2) or btnp(3) then
+            game_state = "transition"
+            transition_timer = 0
+        end
+        return
+    elseif game_state == "transition" then
+        logo_anim_timer += 1
+        transition_timer += 1
+        if transition_timer >= transition_length then
+            game_state = "play"
+        end
+        return
+    end
+    player_update()
     if not stat(57) then
         -- music(0)
     end
@@ -455,31 +477,73 @@ function add_box_to_draw(x, y, tile, fall_height, occupied_positions)
     end
 end
 
+
+
 function _draw()
     cls()
+    if game_state == "start" or game_state == "transition" then
+        draw_start_screen()
+        if game_state == "transition" then
+            draw_fade(transition_timer / transition_length)
+        end
+        return
+    end
     local map_x = player.face * MAP_SIZE_IN_TILES
-    
     -- Automatically draw wall sprites for all tiles with collision flags
     draw_map_walls(map_x)
     draw_box_fall_shadow()
     draw_box_walls()
-    
     -- Draw player
     draw_cables()
     draw_player()
-    
     -- Draw main tiles
     map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
-    
     -- Draw boxes and their walls
     draw_boxes()
     draw_minimap()
     draw_particles()
-
     -- draw the player's pixel position
     print("Face: "..player.face, 0, 10, 12)
     print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
     print("Box pos: "..BOX_POS, 0, 30, 12)
+end
+
+-- Draw a fade-out effect (black rectangle with alpha)
+function draw_fade(amount)
+    -- amount: 0 (no fade) to 1 (full black)
+    local steps = 8
+    for i=0,steps-1 do
+        local a = amount * (i+1)/steps
+        rectfill(0, 0, 127, 127, 0)
+        -- PICO-8 doesn't support alpha, so just draw black rectangles repeatedly for a simple fade
+    end
+end
+
+-- Draws the start screen with the logo and play prompt
+
+
+function draw_start_screen()
+    cls()
+    -- Animate logo with a smooth floating effect
+    local t = logo_anim_timer / 40
+    local float_y = sin(t) * 5
+    local float_x = cos(t * 0.7) * 2
+    -- Center logo (4x4 sprites, each 8x8, so 32x32 px)
+    local logo_w = 32
+    local logo_h = 32
+    local logo_x = 64 - logo_w/2 + float_x
+    local logo_y = 64 - logo_h/2 + float_y - 8
+    -- Draw logo
+    for row=0,3 do
+        for col=0,3 do
+            local spr_id = 128 + col + row*16
+            spr(spr_id, logo_x + col*8, logo_y + row*8)
+        end
+    end
+    -- Play prompt at the bottom
+    local prompt = "press ❎ to play"
+    local prompt_x = 64 - (#prompt*2)//2
+    print(prompt, prompt_x, 120, 7)
 end
 
 
