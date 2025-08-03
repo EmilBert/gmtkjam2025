@@ -111,24 +111,26 @@ function player_update()
     end
 
     -- Check room transition
-    local offset = player.width
+    local offset = player.width/2
     local player_x_center = player.x + (player.width/2)
     local player_y_center = player.y + (player.height/2)
     local left_screen_position = player.face*MAP_SIZE
-    if not in_rect(player_x_center, player_y_center, left_screen_position + offset, offset, MAP_SIZE - (offset*2), MAP_SIZE - (offset*2)) then
-        direction = directions.WEST
+    if x_dir != 0 or y_dir != 0 then
+        direction = -1
         edge_offset = player.y
-        if player_y_center - offset < 0 then
+        if player_y_center - offset <= 0 and y_dir < 0 then
             direction = directions.NORTH
             edge_offset = player.x - left_screen_position
-        elseif player_y_center + offset > MAP_SIZE then
+        elseif player_y_center + offset >= MAP_SIZE and y_dir > 0 then
             direction = directions.SOUTH
             edge_offset = player.x - left_screen_position
-        elseif player_x_center + offset > (player.face+1)*MAP_SIZE then
+        elseif player_x_center + offset >= (player.face+1)*MAP_SIZE and x_dir > 0 then
             direction = directions.EAST
+        elseif player_x_center - offset <= player.face*MAP_SIZE and x_dir < 0 then
+            direction = directions.WEST
         end
 
-        traverse(direction, edge_offset)
+        if direction != -1 then traverse(direction, edge_offset) end
     end
 end
 
@@ -439,8 +441,7 @@ function traverse(exit_direction, offset)
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
-    local player_offset = player.width * 2
-    player_offset += (exit_direction == directions.NORTH or exit_direction == directions.WEST) and player.width * 0.75 or -player.width * 0.75
+    local player_offset = (exit_direction == directions.NORTH or exit_direction == directions.WEST) and player.width or 0
     new_dir = new_dir % 4
     player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player_offset)) or (new_dir == directions.WEST and player_offset) or offset)
     player.y = ((new_dir == directions.SOUTH and MAP_SIZE - (player_offset)) or (new_dir == directions.NORTH and player_offset) or offset)
