@@ -301,7 +301,7 @@ function update_boxes(face)
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
             local target_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
-            local box_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
+            local box_tile = mget(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
             if fget(box_tile, 1) and not fget(target_tile, 0) then
                 mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                 mset(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, box_tile)
