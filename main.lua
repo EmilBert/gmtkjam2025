@@ -66,6 +66,7 @@ buttons = {
 wall_lookup = {}
 
 boxes_to_draw = {}
+cables_to_draw = {}
 
 particles={}
 
@@ -84,6 +85,7 @@ function _init()
     end
     
     collect_static_boxes(faces.BASE)
+    collect_static_cables(faces.BASE)
 end
 
 function _update()
@@ -268,6 +270,22 @@ function update_map(previous_face, current_face)
     end
 end
 
+function collect_static_cables(face)
+    cables_to_draw = {} -- Clear the array first
+    for x = 0, MAP_SIZE_IN_TILES - 1 do
+        for y = 0, MAP_SIZE_IN_TILES - 1 do
+            local cable_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
+            if fget(cable_tile, 3) then
+                add(cables_to_draw, {
+                    x = x * 8,
+                    y = y * 8,
+                    tile = cable_tile
+                })
+            end
+        end
+    end
+end
+
 
 function collect_static_boxes(face)
     local occupied_positions = {} -- Track occupied positions
@@ -436,7 +454,6 @@ function add_box_to_draw(x, y, tile, fall_height, occupied_positions)
     end
 end
 
-
 function _draw()
     cls()
     local map_x = player.face * MAP_SIZE_IN_TILES
@@ -447,8 +464,9 @@ function _draw()
     draw_box_walls()
     
     -- Draw player
+    draw_cables()
     draw_player()
-
+    
     -- Draw main tiles
     map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
     
@@ -488,6 +506,13 @@ function draw_box_fall_shadow ()
         -- When fall=shadow_max, radius=1; when fall=0, radius=4
         local radius = shadow_max_radius - (shadow_max_radius - shadow_min_radius) * (fall / shadow_max)
         circfill(box.x + 3, box.y + 7, radius-1, 1) -- color 5 is dark gray
+    end
+end
+
+function draw_cables() 
+    for _, cable in pairs(cables_to_draw) do
+        -- Draw the cable tile at the specified position
+        mapdrawtile(cable.tile, cable.x, cable.y)
     end
 end
 
@@ -633,6 +658,7 @@ function traverse(exit_direction, offset)
     local new_pos = connections[player.face + 1][perspective_exit_direction + 1]
     update_map(player.face, new_pos[1])
     update_boxes(new_pos[1])
+    collect_static_cables(new_pos[1])
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
