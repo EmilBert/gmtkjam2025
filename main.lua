@@ -11,6 +11,7 @@ player = {
 }
 
 GLOBAL_ROTATION = 0
+BOX_POS = ""
 
 MAP_SIZE_IN_TILES = 16
 MAP_SIZE = MAP_SIZE_IN_TILES * 8
@@ -23,12 +24,21 @@ S = {
     BOX = {
         TILE = 18,
         WALL = 34,
+    },
+    BUTTON = {
+        TILE = 36
     }
+}
+
+buttons = {
+    {{1,15,15}, {0,15,9}, {0,15,10}, {2,0,9}, {2,0,10}}
 }
 
 wall_lookup = {}
 
 boxes_to_draw = {}
+
+particles={}
 
 function _init()
     -- Populate wall lookup for predefined tiles
@@ -64,6 +74,7 @@ end
 function in_rect(px, py, rx, ry, rw, rh)
     return px >= rx and px <= rx + rw and py >= ry and py <= ry + rh
 end
+
 
 function player_update()
     -- inputs baby
@@ -105,24 +116,26 @@ function player_update()
     end
 
     -- Check room transition
-    local offset = player.width
+    local offset = player.width/2
     local player_x_center = player.x + (player.width/2)
     local player_y_center = player.y + (player.height/2)
     local left_screen_position = player.face*MAP_SIZE
-    if not in_rect(player_x_center, player_y_center, left_screen_position + offset, offset, MAP_SIZE - (offset*2), MAP_SIZE - (offset*2)) then
-        direction = directions.WEST
+    if x_dir != 0 or y_dir != 0 then
+        direction = -1
         edge_offset = player.y
-        if player_y_center - offset < 0 then
+        if player_y_center - offset <= 0 and y_dir < 0 then
             direction = directions.NORTH
             edge_offset = player.x - left_screen_position
-        elseif player_y_center + offset > MAP_SIZE then
+        elseif player_y_center + offset >= MAP_SIZE and y_dir > 0 then
             direction = directions.SOUTH
             edge_offset = player.x - left_screen_position
-        elseif player_x_center + offset > (player.face+1)*MAP_SIZE then
+        elseif player_x_center + offset >= (player.face+1)*MAP_SIZE and x_dir > 0 then
             direction = directions.EAST
+        elseif player_x_center - offset <= player.face*MAP_SIZE and x_dir < 0 then
+            direction = directions.WEST
         end
 
-        traverse(direction, edge_offset)
+        if direction != -1 then traverse(direction, edge_offset) end
     end
 end
 
@@ -168,6 +181,17 @@ function update_map(previous_face, current_face)
                 mset(i * MAP_SIZE_IN_TILES + j, k + MAP_SIZE_IN_TILES, box_map_segment[(i * MAP_SIZE_IN_TILES * MAP_SIZE_IN_TILES) + (j * MAP_SIZE_IN_TILES) + k])
             end
         end
+    end
+
+    for k, v in pairs(buttons) do
+        rotated_v = {}
+        for k, pos in pairs(v) do
+            rotated_v[k] =
+                    (angle == 90 and {pos[1], 15 - pos[3], pos[2]}) or 
+                    (angle == 180 and {pos[1], 15 - pos[2], 15 - pos[3]}) or 
+                    (angle == -90 and {pos[1], pos[3], 15 - pos[2]}) or {}
+        end
+        buttons[k] = rotated_v
     end
 end
 
@@ -239,16 +263,34 @@ function update_boxes(face)
                     local face_to_place = (escaped_screen and face) or v[1]
                     BOX_DESTINATION = "cur_face: "..face.." pot_face: "..v[1].." res: "..face_to_place
                     
-                    -- Only place the box if the target position is empty
-                    local target_tile = mget(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2])
-                    if not fget(target_tile, 1) then -- Check if position doesn't already have a box
+                    
+                    if mget(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], new_pos[2]) == S.BUTTON.TILE then
+                        BOX_POS = ""..face_to_place.." "..new_pos[1].." "..new_pos[2]
+                        mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], new_pos[2], S.BOX.TILE)
+                        if escaped_screen then
+                            if falling_direction % 2 == 1 then
+                                mset(v[1] * MAP_SIZE_IN_TILES + 15 - new_pos[1], new_pos[2], S.BOX.TILE)
+                            else
+                                mset(v[1] * MAP_SIZE_IN_TILES + new_pos[1], 15 - new_pos[2], S.BOX.TILE)
+                            end
+                        end
+                        for k, val in pairs(buttons) do
+                            if val[1][1] == face_to_place and val[1][2] == new_pos[1] and val[1][3] == new_pos[2] do
+                                BOX_POS = BOX_POS.." success"
+                                for i = 2,#val do
+                                    mset(val[i][1] * MAP_SIZE_IN_TILES + val[i][2], val[i][3], 0)
+                                end
+                            else BOX_POS = BOX_POS..val[1][1].." "..val[1][2].." "..val[1][3]
+                            end
+                        end
+                    else
                         mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], box_tile)
-                    end
                     
                     if escaped_screen then
                         add_box_to_draw(new_pos[1] * 8, new_pos[2] * 8, box_tile, fall_distance, occupied_positions)
                     end
 
+                    end
                 end
             end
         end
@@ -258,8 +300,9 @@ function update_boxes(face)
               
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
+            local target_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
             local box_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
-            if fget(box_tile, 1) then
+            if fget(box_tile, 1) and not fget(target_tile, 0) then
                 mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                 mset(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, box_tile)
                 add_box_to_draw(x * 8, y * 8, box_tile, MAP_SIZE_IN_TILES, occupied_positions)
@@ -309,12 +352,27 @@ function _draw()
     
     -- Draw boxes and their walls
     draw_boxes()
-    
     draw_minimap()
+    draw_particles()
 
     -- draw the player's pixel position
-    -- print("Face: "..player.face, 0, 10, 12)
-    -- print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
+    print("Face: "..player.face, 0, 10, 12)
+    print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
+    print("Box pos: "..BOX_POS, 0, 30, 12)
+end
+
+
+function draw_box_fall_shadow ()
+    for _, box in pairs(boxes_to_draw) do
+        -- Draw a shadow circle under the box, smaller for higher falls (radius 1 at max, 4 just before landing)
+        local shadow_max = 128
+        local shadow_min_radius = 1
+        local shadow_max_radius = 4
+        local fall = min(box.fall_height, shadow_max)
+        -- When fall=shadow_max, radius=1; when fall=0, radius=4
+        local radius = shadow_max_radius - (shadow_max_radius - shadow_min_radius) * (fall / shadow_max)
+        circfill(box.x + 3, box.y + 7, radius-1, 1) -- color 5 is dark gray
+    end
 end
 
 
@@ -372,8 +430,8 @@ function draw_map_walls(map_x)
     end
 
     -- draw the player's pixel position
-    print("Face: "..player.face, 0, 10, 2)
-    print("Angle: "..GLOBAL_ROTATION, 0, 20, 2)
+    -- print("Face: "..player.face, 0, 10, 2)
+    -- print("Angle: "..GLOBAL_ROTATION, 0, 20, 2)
 end
 
 function draw_minimap()
@@ -449,9 +507,9 @@ minimap_face_sprite_lookup = {
     [faces.BASE] = 10,
     [faces.FRONT] = 12,
     [faces.RIGHT] = 14,
-    [faces.BACK] = 16,
-    [faces.LEFT] = 18,
-    [faces.TOP] = 20,
+    [faces.BACK] = 42,
+    [faces.LEFT] = 44,
+    [faces.TOP] = 46,
 }
 
 
@@ -461,15 +519,14 @@ minimap_face_sprite_lookup = {
 ]]
 function traverse(exit_direction, offset)
     local perspective_exit_direction = exit_direction - GLOBAL_ROTATION
-    perspective_exit_direction = exit_direction % 4
+    perspective_exit_direction = perspective_exit_direction % 4
     local new_pos = connections[player.face + 1][perspective_exit_direction + 1]
     update_map(player.face, new_pos[1])
     update_boxes(new_pos[1])
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
-    local player_offset = player.width * 1.5
-    player_offset += (exit_direction == directions.NORTH or exit_direction == directions.WEST) and player.width * 0.75 or -player.width * 0.75
+    local player_offset = (exit_direction == directions.NORTH or exit_direction == directions.WEST) and player.width or 0
     new_dir = new_dir % 4
     player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player_offset)) or (new_dir == directions.WEST and player_offset) or offset)
     player.y = ((new_dir == directions.SOUTH and MAP_SIZE - (player_offset)) or (new_dir == directions.NORTH and player_offset) or offset)
@@ -521,4 +578,99 @@ end
 function reset_shake() 
     camera_offset = 0.2
     camera(0,0)
+end
+
+-- particles --
+-- 0,1 xpos, ypos: x and y position
+-- 2 amt: amount of particles
+-- 3 frc: initial particle force
+-- 4 r_offset: random offset from position
+-- 5 spread: emitter spread, adjusted for angle
+-- 6 angle: the angle of the emitter
+-- 7 lifetime: how long the particle lives
+-- 8 start size: how big particle is initially
+-- 9 gravity_scale
+-- 10 col 1: the primary particle color
+-- 11 col 2: the secondary particle color
+-- Example: play_particles(player.x - (player.face * MAP_SIZE), player.y, 3, 7, 0.1, 0.1, 180, 4, 1, 1, 6, 7)
+function play_particles(xpos, ypos,amt,frc, 
+r_offset, spread, angle, lifetime, startsize, g_scale, col1, col2)
+
+ local theta = angle + (rnd(1) - 0.5) * spread
+    
+    for i=1,amt do
+        add(particles,{
+            -- initial position
+            x=xpos+rnd(r_offset),
+            y=ypos+rnd(r_offset),
+            -- x velocity
+            v_x = frc * cos(theta),
+            -- y velocity
+            v_y = frc * sin(theta),
+            -- graphics
+            radius= rnd(1) + startsize,
+            color1 = col1,
+            color2 = col2,
+            used_color = 0,
+            max_life = lifetime,
+            gravity_scale = g_scale,
+            life = 0,
+        })
+    end
+end
+
+function draw_particles(gravity)
+    local gravity = gravity or 1
+    for p in all(particles) do
+     circfill(p.x, p.y, 
+        p.radius,
+      p.used_color) 
+    end
+    
+    local i = 1
+    for p in all(particles) do
+        local dt = 1
+        -- apply gravity		
+        p.v_y += gravity * p.gravity_scale
+            
+        -- update position
+        p.x += p.v_x * dt
+        p.y += p.v_y * dt
+        
+        -- update graphics
+        p.life = move_towards(
+        p.life, p.max_life, 0.05)
+        
+        local life_ratio = (p.max_life 
+        - p.life) / p.max_life
+        
+        p.used_color = p.color1
+        if(life_ratio < 0.97) then
+            p.used_color = p.color2
+        end
+        
+        p.radius = p.radius * life_ratio
+        
+        if(life_ratio == 0) then
+            deli(particles, i)
+        end
+        
+        i += 1
+    end
+end
+
+-- Math utility
+function move_towards(val, target, rate)
+    if val > target then
+        val -= rate
+        if val < target then 
+            val = target 
+        end
+    elseif val < target then
+        val += rate
+        if val > target then 
+            val = target 
+        end
+    end
+    return val
 end
