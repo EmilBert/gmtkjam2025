@@ -356,6 +356,7 @@ function update_boxes(face)
                     
                     
                     if mget(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], new_pos[2]) == S.BUTTON.TILE then
+                        sfx(12)
                         BOX_POS = ""..face_to_place.." "..new_pos[1].." "..new_pos[2]
                             local additional_faces = {}
                         mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], new_pos[2], S.BOX.TILE)
@@ -526,7 +527,15 @@ function draw_boxes()
         end
         mapdrawtile(box.tile, box.x, box.y - fall_offset)
         if box.fall_height > 0 then
+            if not box.is_falling then
+                box.is_falling = true
+                sfx(10)
+            end
             box.fall_height = max(0, box.fall_height - max(1, flr(box.fall_height / 6)))
+            if box.is_falling and box.fall_height == 0 then
+                box.is_falling = false
+                sfx(11)
+            end
         end
     end
 end
@@ -653,6 +662,7 @@ minimap_face_sprite_lookup = {
     offset: how far from the edge is the character? Counting from the left on north/south and the top on east/west.
 ]]
 function traverse(exit_direction, offset)
+    sfx(14)
     local perspective_exit_direction = exit_direction - GLOBAL_ROTATION
     perspective_exit_direction = perspective_exit_direction % 4
     local new_pos = connections[player.face + 1][perspective_exit_direction + 1]
