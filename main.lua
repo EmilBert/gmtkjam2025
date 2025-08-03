@@ -8,6 +8,7 @@ player = {
     sprite = 64,
     speed = 2,
     face = 0,
+    progress = 0,
 
     facing_x = 0, -- 1 for right, -1 for left
     
@@ -57,7 +58,7 @@ S = {
 }
 
 buttons = {
-    {{1,15,15}, {0,15,9}, {0,15,10}, {2,0,9}, {2,0,10}},
+    {{0,15,0}, {0,15,9}, {0,15,10}, {2,0,9}, {2,0,10}},
     {{3,15,1}, {3,11,1}, {3,11,2}, {3,11,3}},
     {{5, 0, 15}, {5, 1, 14}}
 }
@@ -66,7 +67,7 @@ buttons = {
 wall_lookup = {}
 
 boxes_to_draw = {}
-cables_to_draw = {}
+floorstuff_to_draw = {}
 
 particles={}
 
@@ -90,7 +91,7 @@ function _init()
         end
     end
     collect_static_boxes(faces.BASE)
-    collect_static_cables(faces.BASE)
+    collect_static_floorstuff(faces.BASE)
 end
 
 
@@ -114,7 +115,7 @@ function _update()
     end
     player_update()
     if not stat(57) then
-        -- music(0)
+        music(0)
     end
 end
 
@@ -292,16 +293,16 @@ function update_map(previous_face, current_face)
     end
 end
 
-function collect_static_cables(face)
-    cables_to_draw = {} -- Clear the array first
+function collect_static_floorstuff(face)
+    floorstuff_to_draw = {} -- Clear the array first
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
-            local cable_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
-            if fget(cable_tile, 3) then
-                add(cables_to_draw, {
+            local floor_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
+            if fget(floor_tile, 3) then
+                add(floorstuff_to_draw, {
                     x = x * 8,
                     y = y * 8,
-                    tile = cable_tile
+                    tile = floor_tile
                 })
             end
         end
@@ -322,7 +323,7 @@ function collect_static_boxes(face)
 end
 
 -- Move boxes according to the gravity of the current face.
-function update_boxes(face)
+function update_boxes(face, perspective_exit_direction)
     boxes_to_draw = {} -- Clear the array first
     local occupied_positions = {} -- Track occupied positions to prevent duplicates
     local opposite_face = get_opposite_face(face)
@@ -443,12 +444,33 @@ function update_boxes(face)
               
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
+            local angle = cube_rotation_lookup[player.face][face] or 0
+            local angle2 = cube_rotation_lookup[player.face][opposite_face] or 0
+            local true_x = x
+            local true_y = y
+            if angle + angle2 == 0 then
+                if face + opposite_face == faces.LEFT + faces.RIGHT then
+                    if (GLOBAL_ROTATION % 2) == 0 then x = 15 - x else y = 15 - y end
+                end
+                if face + opposite_face == faces.FRONT + faces.BACK then
+                    if (GLOBAL_ROTATION % 2) == 0 then y = 15 - y else x = 15 - x end
+                end
+                if face + opposite_face == faces.TOP + faces.BASE then
+                    if (GLOBAL_ROTATION % 2) == 0 then y = 15 - y else x = 15 - x end
+                end
+            end
             local target_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
-            local box_tile = mget(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
+            local box_tile = mget(opposite_face * MAP_SIZE_IN_TILES + true_x, MAP_SIZE_IN_TILES + true_y)
             if fget(box_tile, 1) and not fget(target_tile, 0) then
-                mset(opposite_face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
-                mset(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, box_tile)
-                add_box_to_draw(x * 8, y * 8, box_tile, MAP_SIZE_IN_TILES, occupied_positions)
+                    mset(opposite_face * MAP_SIZE_IN_TILES + true_x, MAP_SIZE_IN_TILES + true_y, 0)
+                if fget(mget(face * MAP_SIZE_IN_TILES + x, y), 4) then
+                    player.progress += 1
+                    mset(face * MAP_SIZE_IN_TILES + x, y, box_tile)
+                    add_box_to_draw(x * 8, y * 8, box_tile, MAP_SIZE_IN_TILES, occupied_positions)
+                else
+                    mset(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, box_tile)
+                    add_box_to_draw(x * 8, y * 8, box_tile, MAP_SIZE_IN_TILES, occupied_positions)
+                end
             end
         end
     end
@@ -494,7 +516,7 @@ function _draw()
     draw_box_fall_shadow()
     draw_box_walls()
     -- Draw player
-    draw_cables()
+    draw_floor_stuff()
     draw_player()
     -- Draw main tiles
     map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
@@ -574,10 +596,10 @@ function draw_box_fall_shadow ()
     end
 end
 
-function draw_cables() 
-    for _, cable in pairs(cables_to_draw) do
-        -- Draw the cable tile at the specified position
-        mapdrawtile(cable.tile, cable.x, cable.y)
+function draw_floor_stuff() 
+    for _, floorstuff in pairs(floorstuff_to_draw) do
+        -- Draw the floor tile at the specified position
+        mapdrawtile(floorstuff.tile, floorstuff.x, floorstuff.y)
     end
 end
 
@@ -731,8 +753,8 @@ function traverse(exit_direction, offset)
     perspective_exit_direction = perspective_exit_direction % 4
     local new_pos = connections[player.face + 1][perspective_exit_direction + 1]
     update_map(player.face, new_pos[1])
-    update_boxes(new_pos[1])
-    collect_static_cables(new_pos[1])
+    update_boxes(new_pos[1], perspective_exit_direction)
+    collect_static_floorstuff(new_pos[1])
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
