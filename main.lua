@@ -94,9 +94,6 @@ function _init()
     collect_static_floorstuff(faces.BASE)
 end
 
-
-
-
 function _update()
     if game_state == "start" then
         logo_anim_timer += 1
@@ -112,7 +109,10 @@ function _update()
             game_state = "play"
         end
         return
+    elseif player.progress == 4 then
+        game_state = "end"
     end
+
     player_update()
     if not stat(57) then
         music(0)
@@ -501,6 +501,7 @@ end
 
 
 
+
 function _draw()
     cls()
     if game_state == "start" or game_state == "transition" then
@@ -508,6 +509,9 @@ function _draw()
         if game_state == "transition" then
             draw_fade(transition_timer / transition_length)
         end
+        return
+    elseif game_state == "end" then
+        draw_win_screen()
         return
     end
     local map_x = player.face * MAP_SIZE_IN_TILES
@@ -518,8 +522,8 @@ function _draw()
     -- Draw player
     draw_floor_stuff()
     draw_player()
-    -- Draw main tiles
     map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
+    -- Draw main tiles
     -- Draw boxes and their walls
     draw_boxes()
     draw_minimap()
@@ -528,6 +532,14 @@ function _draw()
     print("Face: "..player.face, 0, 10, 12)
     print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
     print("Box pos: "..BOX_POS, 0, 30, 12)
+end
+
+function draw_win_screen()
+    cls()
+    local msg = "you win!"
+    local x = 64 - (#msg*4)//2
+    local y = 60
+    print(msg, x, y, 11)
 end
 
 -- Draw a fade-out effect (black rectangle with alpha)
