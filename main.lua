@@ -8,6 +8,32 @@ player = {
     sprite = 1,
     speed = 2,
     face = 0,
+
+    facing_x = 0, -- 1 for right, -1 for left
+    
+    -- Animation state
+    current_animation = "idle",
+    animation_frame = 1,
+    animation_timer = 0,
+}
+
+player_animations = {
+    idle = {
+        frames = {64},
+        speed = 30, -- slower for idle
+    },
+    walk = {
+        frames = {65, 66, 67, 68},
+        speed = 4, -- faster for walking
+    },
+    down = {
+        frames = {81, 82, 83, 84},
+        speed = 4,
+    },
+    up = {
+        frames = {97, 98, 99, 100},
+        speed = 4,
+    },
 }
 
 GLOBAL_ROTATION = 0
@@ -81,6 +107,31 @@ function player_update()
     local x_dir = (btn(1) and 1 or 0) - (btn(0) and 1 or 0)
     local y_dir = (btn(3) and 1 or 0) - (btn(2) and 1 or 0)
 
+    -- Update facing direction
+    if x_dir != 0 then
+        player.facing_x = x_dir
+    end
+
+    -- Determine animation based on movement
+    local new_animation = "idle"
+    if y_dir < 0 then
+        new_animation = "up"
+    elseif y_dir > 0 then
+        new_animation = "down"
+    elseif x_dir != 0 then
+        new_animation = "walk"
+    end
+
+    -- Change animation if different
+    if new_animation != player.current_animation then
+        player.current_animation = new_animation
+        player.animation_frame = 1
+        player.animation_timer = 0
+    end
+
+    -- Update animation frame
+    update_player_animation()
+
     -- normalize diagonal movement
     if x_dir != 0 and y_dir != 0 then
         x_dir *= 0.7071
@@ -137,6 +188,25 @@ function player_update()
 
         if direction != -1 then traverse(direction, edge_offset) end
     end
+end
+
+function update_player_animation()
+    local anim = player_animations[player.current_animation]
+    if not anim then return end
+    
+    player.animation_timer += 1
+    local speed = anim.speed or 8
+    
+    if player.animation_timer >= speed then
+        player.animation_timer = 0
+        player.animation_frame += 1
+        if player.animation_frame > #anim.frames then
+            player.animation_frame = 1
+        end
+    end
+    
+    -- Set current sprite
+    player.sprite = anim.frames[player.animation_frame]
 end
 
 -- Update map based on current cube rotation and player position.
@@ -449,7 +519,15 @@ end
 
 function draw_player()
     -- Draw the player sprite at the current position
-    spr(player.sprite, player.x - (player.face * MAP_SIZE), player.y + 2)
+    local sprite_x = player.x - (player.face * MAP_SIZE)
+    local sprite_y = player.y + 2
+    
+    -- Flip sprite horizontally if facing left
+    if player.facing_x < 0 then
+        spr(player.sprite, sprite_x, sprite_y, 1, 1, true, false)
+    else
+        spr(player.sprite, sprite_x, sprite_y)
+    end
 end
 
 -- Helper to draw a single tile at screen position
