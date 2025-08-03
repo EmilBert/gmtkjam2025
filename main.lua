@@ -314,8 +314,8 @@ function _draw()
     draw_particles()
 
     -- draw the player's pixel position
-    -- print("Face: "..player.face, 0, 10, 12)
-    -- print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
+    print("Face: "..player.face, 0, 10, 12)
+    print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
 end
 
 function draw_boxes()
@@ -434,7 +434,7 @@ minimap_face_sprite_lookup = {
 ]]
 function traverse(exit_direction, offset)
     local perspective_exit_direction = exit_direction - GLOBAL_ROTATION
-    perspective_exit_direction = exit_direction % 4
+    perspective_exit_direction = perspective_exit_direction % 4
     local new_pos = connections[player.face + 1][perspective_exit_direction + 1]
     update_map(player.face, new_pos[1])
     update_boxes(new_pos[1])
