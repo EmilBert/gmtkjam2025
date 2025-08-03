@@ -338,10 +338,40 @@ function update_boxes(face)
                         BOX_POS = ""..face_to_place.." "..new_pos[1].." "..new_pos[2]
                         mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], new_pos[2], S.BOX.TILE)
                         if escaped_screen then
+                            local additional_faces = {}
                             if falling_direction % 2 == 1 then
-                                mset(v[1] * MAP_SIZE_IN_TILES + 15 - new_pos[1], new_pos[2], S.BOX.TILE)
+                                -- mset(v[1] * MAP_SIZE_IN_TILES + 15 - new_pos[1], new_pos[2], S.BOX.TILE)
+                                add(additional_faces, {v[1], v[2], 15 - new_pos[1], new_pos[2]})
+                                if new_pos[2] == 0 then
+                                    local temp = connections[face + 1][(directions.NORTH - GLOBAL_ROTATION) % 4 + 1]
+                                    add(additional_faces, {temp[1], temp[2], new_pos[1], 15 -new_pos[2]})
+                                elseif new_pos[2] == 15 then
+                                    local temp = connections[face + 1][(directions.WEST - GLOBAL_ROTATION) % 4 + 1]
+                                    add(additional_faces, {temp[1], temp[2], new_pos[1], new_pos[2]})
+                                end
                             else
-                                mset(v[1] * MAP_SIZE_IN_TILES + new_pos[1], 15 - new_pos[2], S.BOX.TILE)
+                                -- mset(v[1] * MAP_SIZE_IN_TILES + new_pos[1], 15 - new_pos[2], S.BOX.TILE)
+                                add(additional_faces, {v[1], v[2], new_pos[1], 15 - new_pos[2]})
+                                if new_pos[1] == 0 then
+                                    local temp = connections[face + 1][(directions.SOUTH - GLOBAL_ROTATION) % 4 + 1]
+                                    add(additional_faces, {temp[1], temp[2], new_pos[1], new_pos[2]})
+                                elseif new_pos[1] == 15 then
+                                    local temp = connections[face + 1][(directions.NORTH - GLOBAL_ROTATION) % 4 + 1]
+                                    add(additional_faces, {temp[1], temp[2], new_pos[1], new_pos[2]})
+                                end
+                            end
+                            for k, val in pairs(additional_faces) do
+                                local dir = (val[2] - GLOBAL_ROTATION) % 4
+                                local pos = {val[3], val[4]}
+                                        -- (dir == directions.NORTH and {val[3], 15 - val[4]}) or 
+                                        -- (dir == directions.EAST and {val[3], val[4]}) or 
+                                        -- (dir == directions.SOUTH and {val[3], val[4]}) or 
+                                        -- (dir == directions.WEST and {15 - val[3], val[4]}) 
+                                local rotated_pos = 
+                                        (GLOBAL_ROTATION == 1 and {pos[2], 15 - pos[1]}) or 
+                                        (GLOBAL_ROTATION == 2 and {15 - pos[1], 15 - pos[2]}) or
+                                        (GLOBAL_ROTATION == 3 and {15 - pos[2], pos[1]}) or pos
+                                mset(val[1] * MAP_SIZE_IN_TILES + rotated_pos[1], rotated_pos[2], S.BOX.TILE)
                             end
                         end
                         for k, val in pairs(buttons) do
@@ -355,11 +385,42 @@ function update_boxes(face)
                         end
                     else
                         mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], box_tile)
+                    end
+
+
+
+
+                            -- local additional_faces = {}
+                            -- if new_pos[1] == 0 then
+                            --     add(additional_faces, connections[face + 1][(directions.WEST - GLOBAL_ROTATION) % 4 + 1])
+                            -- end
+                            -- if new_pos[1] == 15 then
+                            --     add(additional_faces, connections[face + 1][(directions.EAST - GLOBAL_ROTATION) % 4 + 1])
+                            -- end
+                            -- if new_pos[2] == 0 then
+                            --     add(additional_faces, connections[face + 1][(directions.NORTH - GLOBAL_ROTATION) % 4 + 1])
+                            -- end
+                            -- if new_pos[2] == 15 then
+                            --     add(additional_faces, connections[face + 1][(directions.SOUTH - GLOBAL_ROTATION) % 4 + 1])
+                            -- end
+                            -- for k, val in pairs(additional_faces) do
+                            --     local dir = (val[2] - GLOBAL_ROTATION) % 4
+                            --     local pos = 
+                            --             (dir == directions.NORTH and {new_pos[1], 15}) or 
+                            --             (dir == directions.EAST and {0, new_pos[2]}) or 
+                            --             (dir == directions.SOUTH and {new_pos[1], 0}) or 
+                            --             (dir == directions.WEST and {15, new_pos[2]}) 
+                            --     local rotated_pos =
+                            --             (GLOBAL_ROTATION == 3 and {15 - pos[2], pos[1]}) or 
+                            --             (GLOBAL_ROTATION == 2 and {15 - pos[1], 15 - pos[2]}) or 
+                            --             (GLOBAL_ROTATION == 1 and {pos[2], 15 - pos[1]}) or pos
+                            --     mset(val[1] * MAP_SIZE_IN_TILES + rotated_pos[1], rotated_pos[2], S.BOX.TILE)
+                            -- end
+
+
                     
                     if escaped_screen then
                         add_box_to_draw(new_pos[1] * 8, new_pos[2] * 8, box_tile, fall_distance, occupied_positions)
-                    end
-
                     end
                 end
             end
