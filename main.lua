@@ -11,6 +11,7 @@ player = {
 }
 
 GLOBAL_ROTATION = 0
+BOX_POS = ""
 
 MAP_SIZE_IN_TILES = 16
 MAP_SIZE = MAP_SIZE_IN_TILES * 8
@@ -25,8 +26,12 @@ S = {
         WALL = 34,
     },
     BUTTON = {
-        TILE = 35
+        TILE = 36
     }
+}
+
+buttons = {
+    {{1,15,15}, {0,15,9}, {0,15,10}, {2,0,9}, {2,0,10}}
 }
 
 wall_lookup = {}
@@ -177,6 +182,17 @@ function update_map(previous_face, current_face)
             end
         end
     end
+
+    for k, v in pairs(buttons) do
+        rotated_v = {}
+        for k, pos in pairs(v) do
+            rotated_v[k] =
+                    (angle == 90 and {pos[1], 15 - pos[3], pos[2]}) or 
+                    (angle == 180 and {pos[1], 15 - pos[2], 15 - pos[3]}) or 
+                    (angle == -90 and {pos[1], pos[3], 15 - pos[2]}) or {}
+        end
+        buttons[k] = rotated_v
+    end
 end
 
 
@@ -242,12 +258,22 @@ function update_boxes(face)
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                     local face_to_place = (escaped_screen and face) or v[1]
                     if mget(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], new_pos[2]) == S.BUTTON.TILE then
+                        BOX_POS = ""..face_to_place.." "..new_pos[1].." "..new_pos[2]
                         mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], new_pos[2], S.BOX.TILE)
                         if escaped_screen then
                             if falling_direction % 2 == 1 then
                                 mset(v[1] * MAP_SIZE_IN_TILES + 15 - new_pos[1], new_pos[2], S.BOX.TILE)
                             else
                                 mset(v[1] * MAP_SIZE_IN_TILES + new_pos[1], 15 - new_pos[2], S.BOX.TILE)
+                            end
+                        end
+                        for k, val in pairs(buttons) do
+                            if val[1][1] == face_to_place and val[1][2] == new_pos[1] and val[1][3] == new_pos[2] do
+                                BOX_POS = BOX_POS.." success"
+                                for i = 2,#val do
+                                    mset(val[i][1] * MAP_SIZE_IN_TILES + val[i][2], val[i][3], 0)
+                                end
+                            else BOX_POS = BOX_POS..val[1][1].." "..val[1][2].." "..val[1][3]
                             end
                         end
                     else
@@ -316,6 +342,7 @@ function _draw()
     -- draw the player's pixel position
     print("Face: "..player.face, 0, 10, 12)
     print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
+    print("Box pos: "..BOX_POS, 0, 30, 12)
 end
 
 function draw_boxes()
