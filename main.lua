@@ -23,6 +23,9 @@ S = {
     BOX = {
         TILE = 18,
         WALL = 34,
+    },
+    BUTTON = {
+        TILE = 35
     }
 }
 
@@ -236,13 +239,23 @@ function update_boxes(face)
                     end
                     mset(v[1] * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y, 0)
                     local face_to_place = (escaped_screen and face) or v[1]
-                    BOX_DESTINATION = "cur_face: "..face.." pot_face: "..v[1].." res: "..face_to_place
-                    mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], box_tile)
+                    if mget(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], new_pos[2]) == S.BUTTON.TILE then
+                        mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], new_pos[2], S.BOX.TILE)
+                        if escaped_screen then
+                            if falling_direction % 2 == 1 then
+                                mset(v[1] * MAP_SIZE_IN_TILES + 15 - new_pos[1], new_pos[2], S.BOX.TILE)
+                            else
+                                mset(v[1] * MAP_SIZE_IN_TILES + new_pos[1], 15 - new_pos[2], S.BOX.TILE)
+                            end
+                        end
+                    else
+                        mset(face_to_place * MAP_SIZE_IN_TILES + new_pos[1], MAP_SIZE_IN_TILES + new_pos[2], box_tile)
                     
                     if escaped_screen then
                         add_box_to_draw(new_pos[1] * 8, new_pos[2] * 8, box_tile, fall_distance)
                     end
 
+                    end
                 end
             end
         end
@@ -426,7 +439,7 @@ function traverse(exit_direction, offset)
 
     player.face = new_pos[1]
     local new_dir = new_pos[2] + GLOBAL_ROTATION
-    local player_offset = player.width * 1.5
+    local player_offset = player.width * 2
     player_offset += (exit_direction == directions.NORTH or exit_direction == directions.WEST) and player.width * 0.75 or -player.width * 0.75
     new_dir = new_dir % 4
     player.x = player.face*MAP_SIZE + ((new_dir == directions.EAST and MAP_SIZE - (player_offset)) or (new_dir == directions.WEST and player_offset) or offset)
