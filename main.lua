@@ -18,6 +18,8 @@ player = {
     animation_timer = 0,
 }
 
+world_offset = 3
+
 player_animations = {
     idle = {
         frames = {64},
@@ -52,10 +54,37 @@ S = {
         TILE = 18,
         WALL = 34,
     },
+    CHEST = {
+        TILE = 7,
+        WALL = 23,
+    },
     BUTTON = {
         TILE = 36
     }
 }
+
+-- FS = {
+--     NORMAL_BTN = {
+--         TILE = 36,
+--         BOTTOM = 52
+--     },
+--     YELLOW_BTN = {
+--         TILE = 37,
+--         BOTTOM = 53
+--     },
+--     GREEN_BTN = {
+--         TILE = 38,
+--         BOTTOM = 54
+--     },
+--     BLUE_BTN = {
+--         TILE = 39,
+--         BOTTOM = 55
+--     },
+--     RED_BTN = {
+--         TILE = 40,
+--         BOTTOM = 56
+--     },
+-- }
 
 buttons = {
     {{0,15,0}, {0,15,9}, {0,15,10}, {2,0,9}, {2,0,10}},
@@ -70,9 +99,6 @@ boxes_to_draw = {}
 floorstuff_to_draw = {}
 
 particles={}
-
-
-
 
 game_state = "start" -- 'start', 'transition', or 'play'
 logo_anim_timer = 0
@@ -311,12 +337,11 @@ end
 
 
 function collect_static_boxes(face)
-    local occupied_positions = {} -- Track occupied positions
     for x = 0, MAP_SIZE_IN_TILES - 1 do
         for y = 0, MAP_SIZE_IN_TILES - 1 do
             local box_tile = mget(face * MAP_SIZE_IN_TILES + x, MAP_SIZE_IN_TILES + y)
             if fget(box_tile, 1) then
-                add_box_to_draw(x * 8, y * 8, box_tile, 0, occupied_positions)
+                add_box_to_draw(x * 8, y * 8, box_tile, 0)
             end
         end
     end
@@ -325,7 +350,7 @@ end
 -- Move boxes according to the gravity of the current face.
 function update_boxes(face, perspective_exit_direction)
     boxes_to_draw = {} -- Clear the array first
-    local occupied_positions = {} -- Track occupied positions to prevent duplicates
+    occupied_positions = {}
     local opposite_face = get_opposite_face(face)
     
     for k, v in pairs(connections[face + 1]) do
@@ -486,7 +511,9 @@ function get_opposite_face(face)
     end
 end
 
-function add_box_to_draw(x, y, tile, fall_height, occupied_positions)
+occupied_positions = {}
+
+function add_box_to_draw(x, y, tile, fall_height)
     local pos_key = x..","..y -- Create a unique key for this position
     if not occupied_positions[pos_key] then
         occupied_positions[pos_key] = true
@@ -500,10 +527,15 @@ function add_box_to_draw(x, y, tile, fall_height, occupied_positions)
 end
 
 
-
-
 function _draw()
     cls()
+    -- Fill the whole floor with tile 8
+    for x=0,MAP_SIZE_IN_TILES-1 do
+        spr(9, x*8, -world_offset)
+        for y=0,MAP_SIZE_IN_TILES-1 do
+            spr(8, x*8, y*8+world_offset)
+        end
+    end
     if game_state == "start" or game_state == "transition" then
         draw_start_screen()
         if game_state == "transition" then
@@ -516,22 +548,23 @@ function _draw()
     end
     local map_x = player.face * MAP_SIZE_IN_TILES
     -- Automatically draw wall sprites for all tiles with collision flags
+    -- Draw player
+    -- draw_floor_stuff()
+    map(map_x, 0, 0, world_offset, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
     draw_map_walls(map_x)
+    draw_player()
     draw_box_fall_shadow()
     draw_box_walls()
-    -- Draw player
-    draw_floor_stuff()
-    draw_player()
-    map(map_x, 0, 0, 0, MAP_SIZE_IN_TILES, MAP_SIZE_IN_TILES)
+    draw_walls()
+    draw_boxes()
     -- Draw main tiles
     -- Draw boxes and their walls
-    draw_boxes()
     draw_minimap()
     draw_particles()
     -- draw the player's pixel position
-    print("Face: "..player.face, 0, 10, 12)
-    print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
-    print("Box pos: "..BOX_POS, 0, 30, 12)
+    -- print("Face: "..player.face, 0, 10, 12)
+    -- print("Angle: "..GLOBAL_ROTATION, 0, 20, 12)
+    -- print("Box pos: "..BOX_POS, 0, 30, 12)
 end
 
 function draw_win_screen()
@@ -554,7 +587,18 @@ function draw_fade(amount)
 end
 
 -- Draws the start screen with the logo and play prompt
-
+function draw_walls()
+    -- Draw the walls based on the current face
+    local map_x = player.face * MAP_SIZE_IN_TILES
+    for x=0,MAP_SIZE_IN_TILES-1 do
+        for y=0,MAP_SIZE_IN_TILES-1 do
+            local tile = mget(map_x + x, y)
+            if fget(tile, 0) then
+                mapdrawtile(tile, x*8, y*8)
+            end
+        end
+    end
+end
 
 function draw_start_screen()
     cls()
