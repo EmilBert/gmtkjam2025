@@ -602,6 +602,14 @@ end
 
 function draw_start_screen()
     cls()
+
+    for x=0,MAP_SIZE_IN_TILES-1 do
+       
+        for y=0,MAP_SIZE_IN_TILES-1 do
+            spr(8, x*8, y*8)
+        end
+    end
+
     -- Animate logo with a smooth floating effect
     local t = logo_anim_timer / 40
     local float_y = sin(t) * 5
@@ -634,7 +642,7 @@ function draw_box_fall_shadow ()
         local fall = min(box.fall_height, shadow_max)
         -- When fall=shadow_max, radius=1; when fall=0, radius=4
         local radius = shadow_max_radius - (shadow_max_radius - shadow_min_radius) * (fall / shadow_max)
-        circfill(box.x + 3, box.y + 7, radius-1, 1) -- color 5 is dark gray
+        circfill(box.x + 3, box.y + 7, radius+1, 0) -- color 5 is dark gray
     end
 end
 
@@ -648,7 +656,7 @@ function draw_box_fall_shadow ()
         local fall = min(box.fall_height, shadow_max)
         -- When fall=shadow_max, radius=1; when fall=0, radius=4
         local radius = shadow_max_radius - (shadow_max_radius - shadow_min_radius) * (fall / shadow_max)
-        circfill(box.x + 3, box.y + 7, radius-1, 1) -- color 5 is dark gray
+        circfill(box.x + 3, box.y + 7, radius-1, 0) -- color 5 is dark gray
     end
 end
 
