@@ -103,7 +103,7 @@ particles={}
 game_state = "start" -- 'start', 'transition', or 'play'
 logo_anim_timer = 0
 transition_timer = 0
-transition_length = 30 -- frames for fade
+transition_length = 120 -- frames for fade
 
 function _init()
     -- Populate wall lookup for predefined tiles
@@ -577,12 +577,18 @@ end
 
 -- Draw a fade-out effect (black rectangle with alpha)
 function draw_fade(amount)
-    -- amount: 0 (no fade) to 1 (full black)
-    local steps = 8
-    for i=0,steps-1 do
-        local a = amount * (i+1)/steps
-        rectfill(0, 0, 127, 127, 0)
-        -- PICO-8 doesn't support alpha, so just draw black rectangles repeatedly for a simple fade
+    cls(0) -- Clear the screen with black
+    local msgs = {
+        "gravity follows you to ",
+        "each plane, get the four ",
+        "boxes to their buttons."
+        
+    }
+    local y_start = 64 - (#msgs * 6) // 2
+    for i, msg in ipairs(msgs) do
+        local x = 64 - (#msg * 2)
+        local y = y_start + (i - 1) * 12
+        print(msg, x, y, 7)
     end
 end
 
@@ -600,25 +606,18 @@ function draw_walls()
     end
 end
 
+
 function draw_start_screen()
     cls()
+    -- Draw the first scene of the map (face 0) as background
+    local map_x = 0
+    -- Optionally, draw walls for face 0
 
-    for x=0,MAP_SIZE_IN_TILES-1 do
-       
-        for y=0,MAP_SIZE_IN_TILES-1 do
-            spr(8, x*8, y*8)
-        end
-    end
-
-    -- Animate logo with a smooth floating effect
-    local t = logo_anim_timer / 40
-    local float_y = sin(t) * 5
-    local float_x = cos(t * 0.7) * 2
-    -- Center logo (4x4 sprites, each 8x8, so 32x32 px)
+    -- Draw static logo (no animation)
     local logo_w = 32
     local logo_h = 32
-    local logo_x = 64 - logo_w/2 + float_x
-    local logo_y = 64 - logo_h/2 + float_y - 8
+    local logo_x = 64 - logo_w/2 - 32
+    local logo_y = 64 - logo_h/2 - 32
     -- Draw logo
     for row=0,3 do
         for col=0,3 do
@@ -626,10 +625,29 @@ function draw_start_screen()
             spr(spr_id, logo_x + col*8, logo_y + row*8)
         end
     end
-    -- Play prompt at the bottom
+
+    -- Draw 3 names in a column to the right of the logo
+    local names = {"made by:","@bERTHOLDSSON", "@lINNET5", "@rOBOTGANDHI"}
+    local name_x = logo_x + logo_w + 12
+    local name_y = logo_y
+    for i, name in ipairs(names) do
+        print(name, name_x, name_y + (i-1)*9, 6)
+    end
+
+    -- Play prompt in a dark blue banner, higher up
     local prompt = "press ❎ to play"
     local prompt_x = 64 - (#prompt*2)//2
-    print(prompt, prompt_x, 120, 7)
+    local prompt_y = 84
+    -- Draw dark blue banner (color 1) behind the prompt
+    for i=0,16 do
+        local y = prompt_y+12-i
+        local w = 127-(i*2)
+        rectfill(i*2, y, w, y, 2)
+    end
+    rectfill(0, prompt_y+12, 127, prompt_y+60, 1)
+    if (flr(logo_anim_timer/20)%2==0) then
+        print(prompt, prompt_x, prompt_y, 7)
+    end
 end
 
 
